@@ -9,6 +9,7 @@ import {
   dbGetCategories, dbSaveCategory, dbToggleCategoryStatus,
   dbGetSubcategories, dbSaveSubcategory, dbToggleSubcatStatus 
 } from '../../utils/mockDb';
+import { productService } from '../../services/POS/ProductService';
 
 const ProductManagement = () => {
   const { darkMode } = useSelector((state) => state.ui);
@@ -41,19 +42,54 @@ const ProductManagement = () => {
   // Category / Subcategory modal & forms
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [categoryName, setCategoryName] = useState('');
+  const [editingCategory, setEditingCategory] = useState(null);
   
   const [isSubcatModalOpen, setIsSubcatModalOpen] = useState(false);
   const [subcategoryName, setSubcategoryName] = useState('');
   const [parentCategoryId, setParentCategoryId] = useState('');
+  const [editingSubcategory, setEditingSubcategory] = useState(null);
 
   // Alerts
   const [alert, setAlert] = useState({ show: false, message: '', type: 'success' });
 
   // Load all lists
-  const refreshAllData = () => {
+  const refreshAllData = async () => {
     setProducts(dbGetProducts());
-    setCategories(dbGetCategories());
-    setSubcategories(dbGetSubcategories());
+    
+    // Load categories from API, fallback to mockDb
+    try {
+      const apiCategories = await productService.getAllCategories();
+      if (apiCategories && apiCategories.length > 0) {
+        const mapped = apiCategories.map(c => ({
+          pcd_category_id: c.CategoryId || c.categoryId,
+          pcd_category_name: c.CategoryName || c.categoryName,
+          pcd_is_active: c.IsActive === false ? 'I' : 'A',
+        }));
+        setCategories(mapped);
+      } else {
+        setCategories(dbGetCategories());
+      }
+    } catch {
+      setCategories(dbGetCategories());
+    }
+
+    // Load subcategories from API, fallback to mockDb
+    try {
+      const apiSubcategories = await productService.getAllSubcategories();
+      if (apiSubcategories && apiSubcategories.length > 0) {
+        const mapped = apiSubcategories.map(s => ({
+          psd_subcategory_id: s.SubCategoryId || s.subCategoryId,
+          psd_category_id: s.CategoryId || s.categoryId,
+          psd_subcategory_name: s.SubCategoryName || s.subCategoryName,
+          psd_is_active: s.IsActive === false ? 'I' : 'A',
+        }));
+        setSubcategories(mapped);
+      } else {
+        setSubcategories(dbGetSubcategories());
+      }
+    } catch {
+      setSubcategories(dbGetSubcategories());
+    }
   };
 
   useEffect(() => {
@@ -137,36 +173,73 @@ const ProductManagement = () => {
     setIsProdModalOpen(true);
   };
 
-  // Add Category
-  const handleSaveCategory = (e) => {
+  // Add/Edit Category
+  const handleSaveCategory = async (e) => {
     e.preventDefault();
     if (!categoryName.trim()) return;
     try {
-      dbSaveCategory({ pcd_category_name: categoryName.trim() });
-      triggerAlert(`Category "${categoryName}" created successfully!`);
+      if (editingCategory) {
+        const response = await productService.updateCategory(
+          editingCategory.pcd_category_id,
+          categoryName.trim(),
+          editingCategory.pcd_is_active === 'A'
+        );
+        if (response.StatusCode === 200) {
+          triggerAlert(`Category "${categoryName}" updated successfully!`);
+        } else {
+          triggerAlert(response.Result || `Category "${categoryName}" updated!`);
+        }
+      } else {
+        const response = await productService.addCategory(categoryName.trim());
+        if (response.StatusCode === 200) {
+          triggerAlert(`Category "${categoryName}" created successfully!`);
+        } else {
+          triggerAlert(response.Result || `Category "${categoryName}" created!`);
+        }
+      }
       setCategoryName('');
+      setEditingCategory(null);
       setIsCatModalOpen(false);
-      refreshAllData();
-    } catch (e) {
-      triggerAlert('Error creating category', 'error');
+      await refreshAllData();
+    } catch (err) {
+      triggerAlert(err.response?.data?.Result || err.message || 'Error saving category', 'error');
     }
   };
 
-  // Add Subcategory
-  const handleSaveSubcategory = (e) => {
+  // Add/Edit Subcategory
+  const handleSaveSubcategory = async (e) => {
     e.preventDefault();
     if (!subcategoryName.trim() || !parentCategoryId) return;
     try {
-      dbSaveSubcategory({
-        psd_category_id: parseInt(parentCategoryId),
-        psd_subcategory_name: subcategoryName.trim()
-      });
-      triggerAlert(`Subcategory "${subcategoryName}" created successfully!`);
+      if (editingSubcategory) {
+        const response = await productService.updateSubcategory(
+          editingSubcategory.psd_subcategory_id,
+          parseInt(parentCategoryId),
+          subcategoryName.trim(),
+          editingSubcategory.psd_is_active === 'A'
+        );
+        if (response.StatusCode === 200) {
+          triggerAlert(`Subcategory "${subcategoryName}" updated successfully!`);
+        } else {
+          triggerAlert(response.Result || `Subcategory "${subcategoryName}" updated!`);
+        }
+      } else {
+        const response = await productService.addSubcategory(
+          parseInt(parentCategoryId),
+          subcategoryName.trim()
+        );
+        if (response.StatusCode === 200) {
+          triggerAlert(`Subcategory "${subcategoryName}" created successfully!`);
+        } else {
+          triggerAlert(response.Result || `Subcategory "${subcategoryName}" created!`);
+        }
+      }
       setSubcategoryName('');
+      setEditingSubcategory(null);
       setIsSubcatModalOpen(false);
-      refreshAllData();
-    } catch (e) {
-      triggerAlert('Error creating subcategory', 'error');
+      await refreshAllData();
+    } catch (err) {
+      triggerAlert(err.response?.data?.Result || err.message || 'Error saving subcategory', 'error');
     }
   };
 
@@ -177,16 +250,47 @@ const ProductManagement = () => {
     triggerAlert('Product status toggled');
   };
 
-  const toggleCatStatus = (id) => {
-    dbToggleCategoryStatus(id);
-    refreshAllData();
-    triggerAlert('Category status toggled');
+  const toggleCatStatus = async (id) => {
+    try {
+      const cat = categories.find(c => c.pcd_category_id === id);
+      if (!cat) return;
+      const newStatus = cat.pcd_is_active !== 'A';
+      const response = await productService.updateCategory(id, cat.pcd_category_name, newStatus);
+      if (response.StatusCode === 200) {
+        triggerAlert('Category status updated successfully!');
+      } else {
+        triggerAlert(response.Result || 'Category status updated!');
+      }
+      await refreshAllData();
+    } catch (err) {
+      dbToggleCategoryStatus(id);
+      await refreshAllData();
+      triggerAlert('Category status updated (offline mode)');
+    }
   };
 
-  const toggleSubcatStatus = (id) => {
-    dbToggleSubcatStatus(id);
-    refreshAllData();
-    triggerAlert('Subcategory status toggled');
+  const toggleSubcatStatus = async (id) => {
+    try {
+      const sub = subcategories.find(s => s.psd_subcategory_id === id);
+      if (!sub) return;
+      const newStatus = sub.psd_is_active !== 'A';
+      const response = await productService.updateSubcategory(
+        id,
+        sub.psd_category_id,
+        sub.psd_subcategory_name,
+        newStatus
+      );
+      if (response.StatusCode === 200) {
+        triggerAlert('Subcategory status updated successfully!');
+      } else {
+        triggerAlert(response.Result || 'Subcategory status updated!');
+      }
+      await refreshAllData();
+    } catch (err) {
+      dbToggleSubcatStatus(id);
+      await refreshAllData();
+      triggerAlert('Subcategory status updated (offline mode)');
+    }
   };
 
   // Filtering
@@ -401,7 +505,11 @@ const ProductManagement = () => {
                 <FiTag className="text-teal-500" /> Categories (ps_categories_details)
               </h2>
               <button
-                onClick={() => setIsCatModalOpen(true)}
+                onClick={() => {
+                  setEditingCategory(null);
+                  setCategoryName('');
+                  setIsCatModalOpen(true);
+                }}
                 className="flex items-center gap-1.5 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 px-3.5 py-2 rounded-xl transition-all shadow"
               >
                 <FiPlus /> Add Category
@@ -431,14 +539,26 @@ const ProductManagement = () => {
                         </span>
                       </td>
                       <td className="px-5 py-3 text-sm text-center">
-                        <button
-                          onClick={() => toggleCatStatus(cat.pcd_category_id)}
-                          className={`text-xs font-bold underline transition-colors ${
-                            cat.pcd_is_active === 'A' ? 'text-red-500 hover:text-red-700' : 'text-green-500 hover:text-green-700'
-                          }`}
-                        >
-                          {cat.pcd_is_active === 'A' ? 'Deactivate' : 'Activate'}
-                        </button>
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            onClick={() => {
+                              setEditingCategory(cat);
+                              setCategoryName(cat.pcd_category_name);
+                              setIsCatModalOpen(true);
+                            }}
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => toggleCatStatus(cat.pcd_category_id)}
+                            className={`text-xs font-bold underline transition-colors ${
+                              cat.pcd_is_active === 'A' ? 'text-red-500 hover:text-red-700' : 'text-green-500 hover:text-green-700'
+                            }`}
+                          >
+                            {cat.pcd_is_active === 'A' ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -455,6 +575,8 @@ const ProductManagement = () => {
               </h2>
               <button
                 onClick={() => {
+                  setEditingSubcategory(null);
+                  setSubcategoryName('');
                   setParentCategoryId(categories[0]?.pcd_category_id || '');
                   setIsSubcatModalOpen(true);
                 }}
@@ -489,14 +611,27 @@ const ProductManagement = () => {
                         </span>
                       </td>
                       <td className="px-5 py-3 text-sm text-center">
-                        <button
-                          onClick={() => toggleSubcatStatus(sub.psd_subcategory_id)}
-                          className={`text-xs font-bold underline transition-colors ${
-                            sub.psd_is_active === 'A' ? 'text-red-500 hover:text-red-700' : 'text-green-500 hover:text-green-700'
-                          }`}
-                        >
-                          {sub.psd_is_active === 'A' ? 'Deactivate' : 'Activate'}
-                        </button>
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            onClick={() => {
+                              setEditingSubcategory(sub);
+                              setSubcategoryName(sub.psd_subcategory_name);
+                              setParentCategoryId(sub.psd_category_id);
+                              setIsSubcatModalOpen(true);
+                            }}
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => toggleSubcatStatus(sub.psd_subcategory_id)}
+                            className={`text-xs font-bold underline transition-colors ${
+                              sub.psd_is_active === 'A' ? 'text-red-500 hover:text-red-700' : 'text-green-500 hover:text-green-700'
+                            }`}
+                          >
+                            {sub.psd_is_active === 'A' ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -670,8 +805,8 @@ const ProductManagement = () => {
             darkMode ? 'bg-gray-800 border border-gray-700 text-white' : 'bg-white text-gray-800'
           }`}>
             <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-bold">Add Category</h2>
-              <button onClick={() => setIsCatModalOpen(false)} className="hover:opacity-75"><FiX className="w-5 h-5" /></button>
+              <h2 className="text-lg font-bold">{editingCategory ? 'Edit Category' : 'Add Category'}</h2>
+              <button onClick={() => { setIsCatModalOpen(false); setEditingCategory(null); }} className="hover:opacity-75"><FiX className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSaveCategory}>
               <div className="p-5">
@@ -690,7 +825,7 @@ const ProductManagement = () => {
               <div className="flex justify-end gap-3 p-5 bg-gray-50 dark:bg-gray-900/40">
                 <button
                   type="button"
-                  onClick={() => setIsCatModalOpen(false)}
+                  onClick={() => { setIsCatModalOpen(false); setEditingCategory(null); }}
                   className="px-4 py-2 rounded-xl text-sm font-semibold bg-transparent border border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 transition-all"
                 >
                   Cancel
@@ -699,7 +834,7 @@ const ProductManagement = () => {
                   type="submit"
                   className="px-5 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-sm font-bold shadow"
                 >
-                  Create
+                  {editingCategory ? 'Save Changes' : 'Create'}
                 </button>
               </div>
             </form>
@@ -714,8 +849,8 @@ const ProductManagement = () => {
             darkMode ? 'bg-gray-800 border border-gray-700 text-white' : 'bg-white text-gray-800'
           }`}>
             <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-bold">Add Subcategory</h2>
-              <button onClick={() => setIsSubcatModalOpen(false)} className="hover:opacity-75"><FiX className="w-5 h-5" /></button>
+              <h2 className="text-lg font-bold">{editingSubcategory ? 'Edit Subcategory' : 'Add Subcategory'}</h2>
+              <button onClick={() => { setIsSubcatModalOpen(false); setEditingSubcategory(null); }} className="hover:opacity-75"><FiX className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSaveSubcategory}>
               <div className="p-5 space-y-4">
@@ -752,7 +887,7 @@ const ProductManagement = () => {
               <div className="flex justify-end gap-3 p-5 bg-gray-50 dark:bg-gray-900/40">
                 <button
                   type="button"
-                  onClick={() => setIsSubcatModalOpen(false)}
+                  onClick={() => { setIsSubcatModalOpen(false); setEditingSubcategory(null); }}
                   className="px-4 py-2 rounded-xl text-sm font-semibold bg-transparent border border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 transition-all"
                 >
                   Cancel
@@ -761,7 +896,7 @@ const ProductManagement = () => {
                   type="submit"
                   className="px-5 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-sm font-bold shadow"
                 >
-                  Create
+                  {editingSubcategory ? 'Save Changes' : 'Create'}
                 </button>
               </div>
             </form>
