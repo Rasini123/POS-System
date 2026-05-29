@@ -1,0 +1,8 @@
+// UI & Modals
+export const TOGGLE_THEME = 'TOGGLE_THEME';
+export const SET_ACTIVE_PAGE = 'SET_ACTIVE_PAGE';
+export const OPEN_MODAL = 'OPEN_MODAL';
+export const CLOSE_MODAL = 'CLOSE_MODAL';
+export const SET_PO_PREFILL_DATA = 'SET_PO_PREFILL_DATA';
+export const CLEAR_PO_PREFILL_DATA = 'CLEAR_PO_PREFILL_DATA';
+export const SET_POS_LAYOUT = 'SET_POS_LAYOUT';
