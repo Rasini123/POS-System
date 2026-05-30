@@ -15,7 +15,7 @@ export const productService = {
   getSubcategoriesByMainId: async (mainId) => {
     const response = await axios.get(`${API_URL}/SubCategories/GetAllSubCategories`);
     const subCategories = response.data.ResultSet || [];
-    return subCategories.filter(sub => sub.CategoryId === String(mainId));
+    return subCategories.filter(sub => String(sub.CategoryId ?? sub.categoryId ?? sub.psd_category_id) === String(mainId));
   },
 
   getProductsBySubId: async (subId) => {
