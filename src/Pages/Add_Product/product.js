@@ -467,11 +467,11 @@ const ProductManagement = () => {
   });
 
   const getCategoryName = (id) => {
-    return categories.find(c => c.pcd_category_id === id)?.pcd_category_name || 'N/A';
+    return categories.find(c => String(c.pcd_category_id) === String(id))?.pcd_category_name || 'N/A';
   };
 
   const getSubcategoryName = (id) => {
-    return subcategories.find(s => s.psd_subcategory_id === id)?.psd_subcategory_name || 'None';
+    return subcategories.find(s => String(s.psd_subcategory_id) === String(id))?.psd_subcategory_name || 'None';
   };
 
   return (
