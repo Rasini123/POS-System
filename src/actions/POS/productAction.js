@@ -40,51 +40,102 @@ const normalizeSubcategory = (subcategory) => ({
   psd_is_active: toActiveFlag(pickFirst(subcategory.psd_is_active, subcategory.IsActive, subcategory.isActive, subcategory.is_active))
 });
 
+const getProductImageUrl = (product) => {
+  const rawImg = pickFirst(product.ppd_product_image, product.ProductImage, product.productImage, product.product_image);
+  if (!rawImg) return '';
+
+  if (rawImg.startsWith('blob:') || rawImg.startsWith('data:')) return rawImg;
+
+  if (rawImg.startsWith('http')) {
+    if (rawImg.includes('ProductPhotoPreview?ProductId=')) {
+      const id = pickFirst(product.ProductId, product.ppd_product_id, product.productId, product.product_id);
+      return `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${id}.jpeg`;
+    }
+    return rawImg;
+  }
+
+  if (rawImg.includes('svg+xml')) return rawImg;
+
+  return `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${rawImg}`;
+};
+
+const normalizeProduct = (product) => {
+  const id = pickFirst(product.ppd_product_id, product.ProductId, product.productId, product.product_id);
+  const price = parseFloat(pickFirst(product.ppd_price, product.Price, product.price, 0)) || 0;
+
+  return {
+    id,
+    productId: id,
+    name: pickFirst(product.ppd_product_name, product.ProductName, product.productName, product.product_name, ''),
+    price,
+    discountType: null,
+    discountValue: 0,
+    discountedPrice: price,
+    markedPrice: price,
+    category: pickFirst(product.ppd_category_id, product.CategoryId, product.categoryId, product.category_id),
+    subCategory: pickFirst(product.ppd_subcategory_id, product.SubCategoryId, product.subCategoryId, product.subcategoryId, product.sub_category_id),
+    stock: 9999,
+    sku: pickFirst(product.ppd_product_code, product.ProductCode, product.productCode, product.product_code, ''),
+    barcode: pickFirst(product.ppd_barcode, product.BarCode, product.Barcode, product.barCode, product.barcode, product.ppd_product_code, product.ProductCode, ''),
+    image: getProductImageUrl(product),
+    Whcode: 'WH-01',
+    hasMultipleBatches: false,
+    totalBatches: 1,
+    allBatches: [],
+    originalProduct: product
+  };
+};
+
+const productIdentityKeys = (product) => {
+  const id = pickFirst(product.ppd_product_id, product.ProductId, product.productId, product.product_id);
+  const sku = pickFirst(product.ppd_product_code, product.ProductCode, product.productCode, product.product_code);
+  const barcode = pickFirst(product.ppd_barcode, product.BarCode, product.Barcode, product.barCode, product.barcode);
+
+  return [id && `id:${id}`, sku && `sku:${sku}`, barcode && `barcode:${barcode}`].filter(Boolean).map(String);
+};
+
+const loadProductsFromApiAndLocal = async () => {
+  let apiProducts = [];
+
+  try {
+    apiProducts = await productService.getAllProducts();
+  } catch (err) {
+    apiProducts = [];
+  }
+
+  const localProducts = dbGetProducts();
+
+  if (!apiProducts || apiProducts.length === 0) {
+    return localProducts.filter(p => toActiveFlag(p.ppd_is_active) === 'A');
+  }
+
+  const mergedProducts = [...apiProducts];
+  const seenKeys = new Set();
+
+  apiProducts.forEach(product => {
+    productIdentityKeys(product).forEach(key => seenKeys.add(key));
+  });
+
+  localProducts.forEach(product => {
+    const keys = productIdentityKeys(product);
+    const alreadyExists = keys.some(key => seenKeys.has(key));
+
+    if (!alreadyExists) {
+      mergedProducts.push(product);
+      keys.forEach(key => seenKeys.add(key));
+    }
+  });
+
+  return mergedProducts.filter(product => (
+    toActiveFlag(pickFirst(product.ppd_is_active, product.IsActive, product.isActive, product.is_active)) === 'A'
+  ));
+};
+
 export const fetchProducts = () => async (dispatch) => {
   dispatch({ type: actionTypes.FETCH_PRODUCTS_REQUEST });
   try {
-    let products = [];
-    try {
-      const apiProducts = await productService.getAllProducts();
-      if (apiProducts && apiProducts.length > 0) {
-        products = apiProducts;
-      } else {
-        products = dbGetProducts().filter(p => p.ppd_is_active === 'A');
-      }
-    } catch (err) {
-      products = dbGetProducts().filter(p => p.ppd_is_active === 'A');
-    }
-    
-    const formattedProducts = products.map((product) => {
-      return {
-        id: product.ppd_product_id || product.ProductId, 
-        productId: product.ppd_product_id || product.ProductId,
-        name: product.ppd_product_name || product.ProductName,
-        price: parseFloat(product.ppd_price || product.Price) || 0,
-        discountType: null,
-        discountValue: 0,
-        discountedPrice: parseFloat(product.ppd_price || product.Price) || 0,
-        markedPrice: parseFloat(product.ppd_price || product.Price) || 0,
-        category: product.ppd_category_id || product.CategoryId,
-        subCategory: product.ppd_subcategory_id || product.SubCategoryId,
-        stock: 9999, // Infinite stock since inventory is disabled
-        sku: product.ppd_product_code || product.ProductCode,
-        barcode: product.ppd_barcode || product.Barcode || product.ppd_product_code || product.ProductCode,
-        image: (() => {
-          const rawImg = product.ppd_product_image || product.ProductImage || '';
-          if (rawImg && rawImg.includes('ProductPhotoPreview?ProductId=')) {
-            const id = product.ProductId || product.ppd_product_id;
-            return `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${id}.jpeg`;
-          }
-          return rawImg;
-        })(),
-        Whcode: 'WH-01',
-        hasMultipleBatches: false,
-        totalBatches: 1,
-        allBatches: [],
-        originalProduct: product
-      };
-    });
+    const products = await loadProductsFromApiAndLocal();
+    const formattedProducts = products.map(normalizeProduct);
 
     dispatch({
       type: actionTypes.FETCH_PRODUCTS_SUCCESS,
@@ -184,52 +235,10 @@ export const fetchSubcategories = (mainId) => async (dispatch) => {
 
 export const fetchProductsBySubcategory = (subId) => async (dispatch) => {
   try {
-    let products = [];
-    try {
-      const apiProducts = await productService.getProductsBySubId(subId);
-      if (apiProducts && apiProducts.length > 0) {
-        products = apiProducts;
-      } else {
-        products = dbGetProducts().filter(
-          p => p.ppd_subcategory_id === parseInt(subId) && p.ppd_is_active === 'A'
-        );
-      }
-    } catch (err) {
-      products = dbGetProducts().filter(
-        p => p.ppd_subcategory_id === parseInt(subId) && p.ppd_is_active === 'A'
-      );
-    }
-
-    const formattedProducts = products.map((product) => {
-      return {
-        id: product.ppd_product_id || product.ProductId,
-        productId: product.ppd_product_id || product.ProductId,
-        name: product.ppd_product_name || product.ProductName,
-        price: parseFloat(product.ppd_price || product.Price) || 0,
-        discountType: null,
-        discountValue: 0,
-        discountedPrice: parseFloat(product.ppd_price || product.Price) || 0,
-        markedPrice: parseFloat(product.ppd_price || product.Price) || 0,
-        category: product.ppd_category_id || product.CategoryId,
-        subCategory: product.ppd_subcategory_id || product.SubCategoryId,
-        stock: 9999,
-        sku: product.ppd_product_code || product.ProductCode,
-        barcode: product.ppd_barcode || product.Barcode || product.ppd_product_code || product.ProductCode,
-        image: (() => {
-          const rawImg = product.ppd_product_image || product.ProductImage || '';
-          if (rawImg && rawImg.includes('ProductPhotoPreview?ProductId=')) {
-            const id = product.ProductId || product.ppd_product_id;
-            return `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${id}.jpeg`;
-          }
-          return rawImg;
-        })(),
-        Whcode: 'WH-01',
-        hasMultipleBatches: false,
-        totalBatches: 1,
-        allBatches: [],
-        originalProduct: product
-      };
-    });
+    const products = await loadProductsFromApiAndLocal();
+    const formattedProducts = products
+      .map(normalizeProduct)
+      .filter(product => String(product.subCategory) === String(subId));
     
     dispatch({
       type: actionTypes.SET_PRODUCTS,
