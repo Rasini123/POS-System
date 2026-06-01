@@ -2731,7 +2731,8 @@ const InvoiceModal = () => {
 
   const activeTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
   const { items: activeTabItems, discount: cartDiscount = 0 } = activeTab;
-  const items = activeTabItems || cartItems || [];
+  const paidItems = modalProps?.items || [];
+  const items = paidItems.length > 0 ? paidItems : (activeTabItems || cartItems || []);
 
   const {
     subtotal: propSubtotal = 0,
@@ -3371,13 +3372,13 @@ const InvoiceModal = () => {
             </button> */}
 
             {/* Separate Cash Drawer Button */}
-            <button
+            {/* <button
               onClick={handleOpenCashDrawer}
               disabled={isOpeningDrawer}
               className="py-2 px-4 bg-purple-500 text-white font-semibold rounded-lg shadow hover:bg-purple-600 disabled:opacity-50"
             >
               {isOpeningDrawer ? "Opening..." : "Open Drawer"}
-            </button>
+            </button> */}
 
             {/* Print Button */}
             <button

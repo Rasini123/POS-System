@@ -117,6 +117,19 @@
 import axios from "axios";
 import { API_URL } from "../../config";
 
+const getCreatedBillByNumber = async (billNo) => {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const allBillsResponse = await axios.get(`${API_URL}/Bills/GetAllBills`);
+    const bills = allBillsResponse.data?.ResultSet || [];
+    const createdBill = bills.find(b => String(b.BillNo) === String(billNo));
+
+    if (createdBill) return createdBill;
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+
+  return null;
+};
+
 // export const invoiceService = {
 //   addInvoice: async (invoiceData) => {
 //     const token = localStorage.getItem("token");
@@ -267,90 +280,121 @@ import { API_URL } from "../../config";
 
 export const invoiceService = {
   addInvoice: async (invoiceData) => {
-    const token = localStorage.getItem("token");
     const userData = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = userData?.LogId || userData?.UserID || "1";
+    const userId = userData?.UserId || userData?.UserID || userData?.userId || userData?.LogId || "1";
 
     const {
       items = [],
       subtotal = 0,
       discount = 0,
-      tax = 0,
       total = 0,
       splitPayment = false,
       method,
       amount, 
       methods = [],
-      tabId,
-      cashAmount 
+      cashAmount
     } = invoiceData;
 
     try {
-      let paymentMethod = 'CASH'; 
-      if (splitPayment) {
-        paymentMethod = 'SPLIT';
-      } else {
-        const methodMap = {
-          'cash': 'CASH',     
-          'card': 'CARD',
-          'lankaqr': 'LANKAQR',
-          'gift': 'GIFT',
-          'paypal': 'PAYPAL',  
-          'mobile': 'MOBILE'    
-        };
-        paymentMethod = methodMap[method] || 'CASH';
-      }
-
-      // Generate a BillNo
-      const billNo = `BILL-${Math.floor(Date.now() / 1000)}`;
+      const methodMap = {
+        cash: 'CASH',
+        card: 'CARD',
+        lankaqr: 'LANKAQR',
+        gift: 'GIFT',
+        paypal: 'PAYPAL',
+        mobile: 'MOBILE',
+        split: 'SPLIT'
+      };
+      const paymentMethod = splitPayment ? 'SPLIT' : methodMap[method] || 'CASH';
+      const paidAmount = Number(amount || cashAmount || total);
+      const changeAmount = Math.max(0, paidAmount - Number(total || 0));
+      const billNo = `BILL-${Date.now()}`;
       const currentDate = new Date().toISOString().split('T')[0];
+      const totalAmount = Number(subtotal || 0);
+      const discountAmount = Number(discount || 0);
+      const netAmount = Number(total || 0);
 
-      // 1. Create the Bill
       const billFormData = new FormData();
       billFormData.append("BillNo", billNo);
       billFormData.append("BillDate", currentDate);
       billFormData.append("UserId", userId);
-      billFormData.append("TotalAmount", subtotal);
-      billFormData.append("DiscountAmount", discount);
-      billFormData.append("NetAmount", total);
+      billFormData.append("TotalAmount", totalAmount.toFixed(2));
+      billFormData.append("DiscountAmount", discountAmount.toFixed(2));
+      billFormData.append("NetAmount", netAmount.toFixed(2));
       billFormData.append("PaymentType", paymentMethod);
       billFormData.append("CreatedBy", userId);
 
       const billResponse = await axios.post(`${API_URL}/Bills/AddBillsDetails`, billFormData);
 
-      // We need the BillId to add items. Assuming the API returns it or we can fetch it, 
-      // but if the API doesn't return BillId in ResultSet, we might have to fetch latest bill.
-      // Let's assume it doesn't return it based on the example which has `ResultSet: null`.
-      // The example response is: { "StatusCode": 200, "Result": "Bill added successfully!", "ResultSet": null }
-      // Without BillId, we need to fetch Bills and find our BillNo
-      const allBillsResponse = await axios.get(`${API_URL}/Bills/GetAllBills`);
-      const createdBill = allBillsResponse.data.ResultSet?.find(b => b.BillNo === billNo);
+      let createdBill = billResponse.data?.ResultSet;
+      if (!createdBill?.BillId) {
+        createdBill = await getCreatedBillByNumber(billNo);
+      }
       
-      if (!createdBill) {
+      if (!createdBill?.BillId) {
         throw new Error("Failed to retrieve created bill ID");
       }
 
-      // 2. Add Bill Items
+      const billItems = [];
       for (const item of items) {
+        const quantity = Number(item.quantity || 0);
+        const unitPrice = Number(item.discountedPrice || item.price || 0);
+        const lineTotal = Number((unitPrice * quantity).toFixed(2));
+        const productId = item.productId || item.ProductId || item.ppd_product_id || item.id;
+
         const itemFormData = new FormData();
         itemFormData.append("BillId", createdBill.BillId);
-        itemFormData.append("ProductId", item.id || item.productId || item.ProductId); // Adjust based on item structure
-        itemFormData.append("Qty", item.quantity);
-        itemFormData.append("UnitPrice", item.price);
-        itemFormData.append("Total", item.price * item.quantity);
+        itemFormData.append("ProductId", productId);
+        itemFormData.append("Qty", quantity.toString());
+        itemFormData.append("UnitPrice", unitPrice.toFixed(2));
+        itemFormData.append("Total", lineTotal.toFixed(2));
         itemFormData.append("CreatedBy", userId);
 
-        await axios.post(`${API_URL}/BillItems/AddBillItemsDetails`, itemFormData);
+        const itemResponse = await axios.post(`${API_URL}/BillItems/AddBillItemsDetails`, itemFormData);
+        billItems.push(itemResponse.data);
       }
 
-      return billResponse.data;
+      return {
+        ...billResponse.data,
+        ResultSet: {
+          ...(billResponse.data?.ResultSet || {}),
+          BillId: createdBill.BillId,
+          BillNo: createdBill.BillNo || billNo,
+          PaymentType: paymentMethod,
+          PaidAmount: paidAmount.toFixed(2),
+          ChangeAmount: changeAmount.toFixed(2),
+          SplitMethods: splitPayment ? methods : [],
+          BillItems: billItems
+        }
+      };
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
+  getAllBills: async () => {
+    try {
+      const url = `${API_URL}/Bills/GetAllBills`;
+      const response = await axios.get(url);
+      // Prefer ResultSet if present, otherwise return raw data
+      return response.data?.ResultSet || response.data || [];
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  getAllBillItems: async () => {
+    try {
+      const url = `${API_URL}/BillItems/GetAllBillItems`;
+      const response = await axios.get(url);
+      return response.data?.ResultSet || response.data || [];
+    } catch (error) {
+      // Don't crash if endpoint doesn't exist
+      console.warn("getAllBillItems warn:", error.message);
+      return [];
+    }
+  },
   
   getInvoiceDetails: async () => {
-      const token = localStorage.getItem("token");
       try {
         const url = `${API_URL}/Invoice/GetInvoiceDetails`;
   
@@ -363,8 +407,6 @@ export const invoiceService = {
     },
   
     updateInvoiceDetails: async (formData) => {
-      const token = localStorage.getItem("token");
-      
       try {
         const url = `${API_URL}/Invoice/UpdateInvoiceDetails`;
   
@@ -382,8 +424,6 @@ export const invoiceService = {
     },
   
     getInvoiceImage: async () => {
-      const token = localStorage.getItem("token");
-      
       try {
         const url = `${API_URL}/Invoice/INPhotoPrivew`; 
   
@@ -405,8 +445,6 @@ export const invoiceService = {
   
     
     getInvoiceImageBlob: async () => {
-      const token = localStorage.getItem("token");
-      
       try {
         const url = `${API_URL}/Invoice/INPhotoPrivew`;
         const response = await axios.get(url, {
@@ -420,18 +458,4 @@ export const invoiceService = {
       }
     }
 };
- 
-const getPaymentMethodCode = (method) => {
-  const methodMap = {
-    'cash': 'C',     
-    'card': 'D',
-    'lankaqr': 'L',
-    'gift': 'G',
-    'paypal': 'P',  
-    'mobile': 'M'    
-  };
-  
-  return methodMap[method] || 'C';  
-};
-
 

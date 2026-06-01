@@ -4,13 +4,15 @@ import {
   FiSearch, FiCalendar, FiClock, FiFileText, FiPrinter, 
   FiDollarSign, FiUser, FiCreditCard, FiX, FiCheckCircle 
 } from 'react-icons/fi';
-import { dbGetBills, dbGetBillDetails } from '../../utils/mockDb';
+import { invoiceService } from '../../services/POS/invoiceService';
 
 const TransactionsHistory = () => {
   const { darkMode } = useSelector((state) => state.ui);
+  const products = useSelector(state => state.product?.allProducts || []);
   
   // Lists
   const [bills, setBills] = useState([]);
+  const [billItems, setBillItems] = useState([]);
   const [selectedBill, setSelectedBill] = useState(null);
   const [selectedBillDetails, setSelectedBillDetails] = useState(null);
   
@@ -23,16 +25,45 @@ const TransactionsHistory = () => {
   // Alerts
   const [alertShow, setAlertShow] = useState(false);
   const [alertMsg, setAlertMsg] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const loadBills = () => {
-    const list = dbGetBills();
-    // Sort by date desc
-    const sorted = [...list].sort((a, b) => new Date(b.pbd_bill_date) - new Date(a.pbd_bill_date));
-    setBills(sorted);
+  const loadBills = async () => {
+    setLoading(true);
+    try {
+      const [fetchedBills, fetchedItems] = await Promise.all([
+        invoiceService.getAllBills(),
+        invoiceService.getAllBillItems()
+      ]);
+      
+      const list = Array.isArray(fetchedBills) ? fetchedBills : (fetchedBills?.Bills || fetchedBills?.ResultSet || []);
+      const itemsList = Array.isArray(fetchedItems) ? fetchedItems : (fetchedItems?.ResultSet || fetchedItems || []);
+      
+      const sorted = [...list].sort((a, b) => new Date(b.BillDate || b.CreateDate) - new Date(a.BillDate || a.CreateDate));
+      
+      const formattedBills = sorted.map(b => ({
+        pbd_bill_id: String(b.BillId || b.BillNo),
+        pbd_bill_no: b.BillNo || String(b.BillId),
+        pbd_bill_date: b.BillDate || b.CreateDate,
+        pbd_total_amount: Number(b.TotalAmount || b.NetAmount || 0),
+        pbd_discount_amount: Number(b.DiscountAmount || 0),
+        pbd_net_amount: Number(b.NetAmount || b.TotalAmount || 0),
+        pbd_payment_type: b.PaymentType || 'CASH',
+        cashier: `User ${b.CreatedBy || b.UserId || '1'}`
+      }));
+
+      setBills(formattedBills);
+      setBillItems(itemsList);
+    } catch (error) {
+      triggerAlert('Failed to load transaction history.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
+    let mounted = true;
     loadBills();
+    return () => { mounted = false; };
   }, []);
 
   const triggerAlert = (msg) => {
@@ -41,16 +72,53 @@ const TransactionsHistory = () => {
     setTimeout(() => setAlertShow(false), 3000);
   };
 
-  const handleSelectBill = (billId) => {
-    const details = dbGetBillDetails(billId);
-    if (details) {
-      setSelectedBill(details.bill);
-      setSelectedBillDetails(details);
-    }
+  const handleSelectBill = (billIdStr) => {
+    const bill = bills.find(b => b.pbd_bill_id === billIdStr);
+    if (!bill) return;
+
+    // Filter raw API items by BillId or BillNo
+    const itemsForThisTxn = billItems.filter(bi => String(bi.BillId) === billIdStr || String(bi.BillNo) === billIdStr);
+
+    const formattedItems = itemsForThisTxn.map(bi => {
+      const prod = products.find(p => String(p.ProductId) === String(bi.ProductId)) || {};
+      return {
+        productName: prod.ProductName || `Product ${bi.ProductId}`,
+        pid_qty: Number(bi.Qty || 1),
+        pid_unit_price: Number(bi.UnitPrice || 0),
+        pid_total: Number(bi.Total || Number(bi.Qty || 1) * Number(bi.UnitPrice || 0))
+      };
+    });
+
+    setSelectedBill(bill);
+    setSelectedBillDetails({
+      bill: bill,
+      cashier: bill.cashier,
+      items: formattedItems
+    });
+  };
+
+  const getDetailsForPrint = (billIdStr) => {
+    const bill = bills.find(b => b.pbd_bill_id === billIdStr);
+    if (!bill) return null;
+    const itemsForThisTxn = billItems.filter(bi => String(bi.BillId) === billIdStr || String(bi.BillNo) === billIdStr);
+    const formattedItems = itemsForThisTxn.map(bi => {
+      const prod = products.find(p => String(p.ProductId) === String(bi.ProductId)) || {};
+      return {
+        productName: prod.ProductName || `Product ${bi.ProductId}`,
+        pid_qty: Number(bi.Qty || 1),
+        pid_unit_price: Number(bi.UnitPrice || 0),
+        pid_total: Number(bi.Total || Number(bi.Qty || 1) * Number(bi.UnitPrice || 0))
+      };
+    });
+    return {
+      bill: bill,
+      cashier: bill.cashier,
+      items: formattedItems
+    };
   };
 
   const handlePrint = (billId) => {
-    const details = dbGetBillDetails(billId);
+    const details = getDetailsForPrint(String(billId));
     if (!details) return;
     
     // Simple inline print layout using window.open
@@ -258,7 +326,22 @@ const TransactionsHistory = () => {
               </tr>
             </thead>
             <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
-              {filteredBills.map((b) => (
+              {loading ? (
+                <tr>
+                  <td colSpan="5" className="p-8 text-center text-gray-500">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <p>Loading transactions...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredBills.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="p-8 text-center text-gray-500">
+                    No transactions found for the given filters.
+                  </td>
+                </tr>
+              ) : filteredBills.map((b) => (
                 <tr 
                   key={b.pbd_bill_id} 
                   onClick={() => handleSelectBill(b.pbd_bill_id)}

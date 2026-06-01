@@ -2156,8 +2156,8 @@ const CartSection = ({ cartFocusMode = false }) => {
         subtotal,
         discount: discount,
         totalProductDiscount,
-        totalProductDiscount,
         total,
+        tabId: activeTabId,
         onPaymentComplete: () => {
           clearDisplay();
         }
