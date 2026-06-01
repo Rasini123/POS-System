@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { 
   FiSearch, FiCalendar, FiClock, FiFileText, FiPrinter, 
-  FiDollarSign, FiUser, FiCreditCard, FiX, FiCheckCircle 
+  FiDollarSign, FiUser, FiCreditCard, FiX, FiCheckCircle, FiEye 
 } from 'react-icons/fi';
 import { invoiceService } from '../../services/POS/invoiceService';
+import { billService } from '../../services/POS/billService';
 
 const TransactionsHistory = () => {
   const { darkMode } = useSelector((state) => state.ui);
@@ -63,13 +64,81 @@ const TransactionsHistory = () => {
     return () => { mounted = false; };
   }, []);
 
+  const handleSearchAPI = async () => {
+    if (!searchTerm.trim()) {
+      loadBills();
+      return;
+    }
+    setLoading(true);
+    try {
+      const apiBill = await billService.getBillById(searchTerm.trim());
+      if (apiBill && apiBill.BillId) {
+        const mappedBill = {
+          pbd_bill_id: String(apiBill.BillId || apiBill.BillNo),
+          pbd_bill_no: apiBill.BillNo || String(apiBill.BillId),
+          pbd_bill_date: apiBill.BillDate || apiBill.CreateDate,
+          pbd_total_amount: Number(apiBill.TotalAmount || apiBill.NetAmount || 0),
+          pbd_discount_amount: Number(apiBill.DiscountAmount || 0),
+          pbd_net_amount: Number(apiBill.NetAmount || apiBill.TotalAmount || 0),
+          pbd_payment_type: apiBill.PaymentType || 'CASH',
+          cashier: `User ${apiBill.CreatedBy || apiBill.UserId || '1'}`
+        };
+        setBills([mappedBill]);
+      } else {
+        setBills([]);
+      }
+    } catch (err) {
+      console.error("Search failed", err);
+      setBills([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const triggerAlert = (msg) => {
     setAlertMsg(msg);
     setAlertShow(true);
     setTimeout(() => setAlertShow(false), 3000);
   };
 
-  const handleSelectBill = (billIdStr) => {
+  const handleSelectBill = async (billIdStr) => {
+    try {
+      const apiBill = await billService.getBillById(billIdStr);
+      if (apiBill) {
+        const mappedBill = {
+          pbd_bill_id: String(apiBill.BillId || apiBill.BillNo),
+          pbd_bill_no: apiBill.BillNo || String(apiBill.BillId),
+          pbd_bill_date: apiBill.BillDate || apiBill.CreateDate,
+          pbd_total_amount: Number(apiBill.TotalAmount || apiBill.NetAmount || 0),
+          pbd_discount_amount: Number(apiBill.DiscountAmount || 0),
+          pbd_net_amount: Number(apiBill.NetAmount || apiBill.TotalAmount || 0),
+          pbd_payment_type: apiBill.PaymentType || 'CASH',
+          cashier: `User ${apiBill.CreatedBy || apiBill.UserId || '1'}`
+        };
+        
+        const itemsForThisTxn = billItems.filter(bi => String(bi.BillId) === billIdStr || String(bi.BillNo) === billIdStr);
+        const formattedItems = itemsForThisTxn.map(bi => {
+          const prod = products.find(p => String(p.ProductId) === String(bi.ProductId)) || {};
+          return {
+            productName: prod.ProductName || `Product ${bi.ProductId}`,
+            pid_qty: Number(bi.Qty || 1),
+            pid_unit_price: Number(bi.UnitPrice || 0),
+            pid_total: Number(bi.Total || Number(bi.Qty || 1) * Number(bi.UnitPrice || 0))
+          };
+        });
+
+        setSelectedBill(mappedBill);
+        setSelectedBillDetails({
+          bill: mappedBill,
+          cashier: mappedBill.cashier,
+          items: formattedItems
+        });
+        return;
+      }
+    } catch (err) {
+      console.error("Failed to fetch bill by ID", err);
+    }
+
     const bill = bills.find(b => b.pbd_bill_id === billIdStr);
     if (!bill) return;
 
@@ -207,7 +276,7 @@ const TransactionsHistory = () => {
 
   // Filter Logic
   const filteredBills = bills.filter(b => {
-    const matchSearch = b.pbd_bill_no.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSearch = String(b.pbd_bill_id).toLowerCase().includes(searchTerm.toLowerCase());
     const matchPayment = paymentFilter === 'all' || b.pbd_payment_type.toLowerCase() === paymentFilter.toLowerCase();
     
     let matchDate = true;
@@ -252,18 +321,32 @@ const TransactionsHistory = () => {
       {/* Filters Panel */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div>
-          <label className="block text-xs font-bold mb-1.5 uppercase opacity-75 tracking-wider">Bill Number</label>
+          <label className="block text-xs font-bold mb-1.5 uppercase opacity-75 tracking-wider">Bill ID</label>
           <div className="relative">
             <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="e.g. RSB-B-10001"
+              placeholder="e.g. 6"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-9 pr-4 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                if (e.target.value === '') {
+                  loadBills();
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSearchAPI();
+              }}
+              className={`w-full pl-9 pr-20 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300'
               }`}
             />
+            <button 
+              onClick={handleSearchAPI}
+              className="absolute right-1 top-1 bottom-1 px-3 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-bold hover:bg-blue-200 dark:hover:bg-blue-800/60 transition-colors"
+            >
+              Search
+            </button>
           </div>
         </div>
 
@@ -315,17 +398,18 @@ const TransactionsHistory = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className={`sticky top-0 z-10 ${darkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-gray-50 border-b border-gray-200'}`}>
+                <th className="px-5 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Bill ID</th>
                 <th className="px-5 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Bill Number</th>
                 <th className="px-5 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Date/Time</th>
                 <th className="px-5 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Payment</th>
                 <th className="px-5 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400 text-right">Net Amount</th>
-                <th className="px-5 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400 text-center">Receipt</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center text-gray-500">
+                  <td colSpan="6" className="p-8 text-center text-gray-500">
                     <div className="flex flex-col items-center justify-center space-y-3">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                       <p>Loading transactions...</p>
@@ -334,7 +418,7 @@ const TransactionsHistory = () => {
                 </tr>
               ) : filteredBills.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center text-gray-500">
+                  <td colSpan="6" className="p-8 text-center text-gray-500">
                     No transactions found for the given filters.
                   </td>
                 </tr>
@@ -348,6 +432,9 @@ const TransactionsHistory = () => {
                       : (darkMode ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50')
                   }`}
                 >
+                  <td className="px-5 py-3.5 whitespace-nowrap text-sm font-bold opacity-75">
+                    {b.pbd_bill_id}
+                  </td>
                   <td className="px-5 py-3.5 whitespace-nowrap text-sm font-bold text-blue-600 dark:text-blue-400">
                     {b.pbd_bill_no}
                   </td>
@@ -369,16 +456,28 @@ const TransactionsHistory = () => {
                     LKR {b.pbd_net_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </td>
                   <td className="px-5 py-3.5 whitespace-nowrap text-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePrint(b.pbd_bill_id);
-                      }}
-                      className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 transition-colors"
-                      title="Reprint Bill"
-                    >
-                      <FiPrinter className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectBill(b.pbd_bill_id);
+                        }}
+                        className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 transition-colors"
+                        title="View Bill"
+                      >
+                        <FiEye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePrint(b.pbd_bill_id);
+                        }}
+                        className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 transition-colors"
+                        title="Reprint Bill"
+                      >
+                        <FiPrinter className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

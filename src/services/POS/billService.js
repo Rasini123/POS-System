@@ -1,0 +1,54 @@
+import axios from "axios";
+import { API_URL } from "../../config";
+
+export const billService = {
+  getAllBills: async () => {
+    const response = await axios.get(`${API_URL}/Bills/GetAllBills`);
+    return response.data.ResultSet || [];
+  },
+
+  getBillById: async (billId) => {
+    const formData = new FormData();
+    formData.append("BillId", String(billId));
+    // The user mentioned it's a GET function but body form-data which usually means POST in some .NET setups,
+    // wait, GetBillsByBillId is GET with body, axios doesn't support FormData in GET body easily, 
+    // actually they might mean POST or pass it in params. Let's try params first, or if it fails, maybe POST.
+    // Usually GET requests send params. 
+    // Let's use GET with params.
+    const response = await axios.get(`${API_URL}/Bills/GetBillsByBillId`, {
+      params: { BillId: billId }
+    });
+    return response.data.ResultSet || response.data.Result || response.data;
+  },
+
+  addBill: async (billData) => {
+    const formData = new FormData();
+    formData.append("BillNo", billData.BillNo || "");
+    formData.append("BillDate", billData.BillDate || "");
+    formData.append("UserId", String(billData.UserId || "1"));
+    formData.append("TotalAmount", String(billData.TotalAmount || "0"));
+    formData.append("DiscountAmount", String(billData.DiscountAmount || "0"));
+    formData.append("NetAmount", String(billData.NetAmount || "0"));
+    formData.append("PaymentType", billData.PaymentType || "CASH");
+    formData.append("CreatedBy", String(billData.CreatedBy || "1"));
+    
+    const response = await axios.post(`${API_URL}/Bills/AddBillsDetails`, formData);
+    return response.data;
+  },
+
+  updateBill: async (billData) => {
+    const formData = new FormData();
+    formData.append("BillId", String(billData.BillId));
+    formData.append("BillNo", billData.BillNo || "");
+    formData.append("BillDate", billData.BillDate || "");
+    formData.append("UserId", String(billData.UserId || "1"));
+    formData.append("TotalAmount", String(billData.TotalAmount || "0"));
+    formData.append("DiscountAmount", String(billData.DiscountAmount || "0"));
+    formData.append("NetAmount", String(billData.NetAmount || "0"));
+    formData.append("PaymentType", billData.PaymentType || "CASH");
+    formData.append("CreatedBy", String(billData.CreatedBy || "1"));
+    
+    const response = await axios.post(`${API_URL}/Bills/PutBillsDetails`, formData);
+    return response.data;
+  }
+};
