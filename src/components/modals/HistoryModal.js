@@ -8,10 +8,8 @@ import { invoiceService } from '../../services/POS/invoiceService';
 const HistoryModal = () => {
   const dispatch = useDispatch();
   const { darkMode } = useSelector(state => state.ui);
-  const products = useSelector(state => state.product?.allProducts || []);
 
   const [transactions, setTransactions] = useState([]);
-  const [billItems, setBillItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -20,17 +18,12 @@ const HistoryModal = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const [billsData, itemsData] = await Promise.all([
-          invoiceService.getAllBills(),
-          invoiceService.getAllBillItems()
-        ]);
+        const billsData = await invoiceService.getAllBills();
         // data may be an array or an object containing arrays
         const list = Array.isArray(billsData) ? billsData : (billsData?.Bills || billsData?.ResultSet || []);
-        const bItems = Array.isArray(itemsData) ? itemsData : (itemsData?.ResultSet || itemsData || []);
         
         if (mounted) {
           setTransactions(list);
-          setBillItems(bItems);
         }
       } catch (err) {
         if (mounted) setError(String(err));
@@ -43,30 +36,13 @@ const HistoryModal = () => {
   }, []);
 
   const handleRowClick = (transaction) => {
-    // Find items for this specific bill
-    const itemsForThisTxn = billItems.filter(bi => 
-      String(bi.BillId) === String(transaction.BillId) || 
-      String(bi.BillNo) === String(transaction.BillNo)
-    );
-
-    const mappedItems = itemsForThisTxn.map(bi => {
-      const prod = products.find(p => String(p.ProductId) === String(bi.ProductId)) || {};
-      return {
-        id: bi.BillItemId || bi.ProductId,
-        name: prod.ProductName || `Prod-${bi.ProductId}`,
-        quantity: Number(bi.Qty || 1),
-        price: Number(bi.UnitPrice || 0),
-        discountedPrice: Number(bi.UnitPrice || 0)
-      };
-    });
-
     const netAmount = Number(transaction.NetAmount ?? transaction.TotalAmount ?? 0);
     const discountAmt = Number(transaction.DiscountAmount ?? 0);
     const totalAmt = Number(transaction.TotalAmount ?? netAmount + discountAmt);
 
     // Open invoice receipt view
     dispatch(openModal('INVOICE', {
-      items: mappedItems,
+      items: [],
       subtotal: totalAmt, 
       total: netAmount,
       discount: discountAmt,

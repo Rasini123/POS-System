@@ -335,25 +335,6 @@ export const invoiceService = {
         throw new Error("Failed to retrieve created bill ID");
       }
 
-      const billItems = [];
-      for (const item of items) {
-        const quantity = Number(item.quantity || 0);
-        const unitPrice = Number(item.discountedPrice || item.price || 0);
-        const lineTotal = Number((unitPrice * quantity).toFixed(2));
-        const productId = item.productId || item.ProductId || item.ppd_product_id || item.id;
-
-        const itemFormData = new FormData();
-        itemFormData.append("BillId", createdBill.BillId);
-        itemFormData.append("ProductId", productId);
-        itemFormData.append("Qty", quantity.toString());
-        itemFormData.append("UnitPrice", unitPrice.toFixed(2));
-        itemFormData.append("Total", lineTotal.toFixed(2));
-        itemFormData.append("CreatedBy", userId);
-
-        const itemResponse = await axios.post(`${API_URL}/BillItems/AddBillItemsDetails`, itemFormData);
-        billItems.push(itemResponse.data);
-      }
-
       return {
         ...billResponse.data,
         ResultSet: {
@@ -363,8 +344,7 @@ export const invoiceService = {
           PaymentType: paymentMethod,
           PaidAmount: paidAmount.toFixed(2),
           ChangeAmount: changeAmount.toFixed(2),
-          SplitMethods: splitPayment ? methods : [],
-          BillItems: billItems
+          SplitMethods: splitPayment ? methods : []
         }
       };
     } catch (error) {
@@ -382,18 +362,6 @@ export const invoiceService = {
     }
   },
 
-  getAllBillItems: async () => {
-    try {
-      const url = `${API_URL}/BillItems/GetAllBillItems`;
-      const response = await axios.get(url);
-      return response.data?.ResultSet || response.data || [];
-    } catch (error) {
-      // Don't crash if endpoint doesn't exist
-      console.warn("getAllBillItems warn:", error.message);
-      return [];
-    }
-  },
-  
   getInvoiceDetails: async () => {
       try {
         const url = `${API_URL}/Invoice/GetInvoiceDetails`;

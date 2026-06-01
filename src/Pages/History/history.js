@@ -30,13 +30,10 @@ const TransactionsHistory = () => {
   const loadBills = async () => {
     setLoading(true);
     try {
-      const [fetchedBills, fetchedItems] = await Promise.all([
-        invoiceService.getAllBills(),
-        invoiceService.getAllBillItems()
-      ]);
+      const fetchedBills = await invoiceService.getAllBills();
       
       const list = Array.isArray(fetchedBills) ? fetchedBills : (fetchedBills?.Bills || fetchedBills?.ResultSet || []);
-      const itemsList = Array.isArray(fetchedItems) ? fetchedItems : (fetchedItems?.ResultSet || fetchedItems || []);
+      const itemsList = []; // Array.isArray(fetchedItems) ? fetchedItems : (fetchedItems?.ResultSet || fetchedItems || []);
       
       const sorted = [...list].sort((a, b) => new Date(b.BillDate || b.CreateDate) - new Date(a.BillDate || a.CreateDate));
       
