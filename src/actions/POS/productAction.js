@@ -70,7 +70,14 @@ export const fetchProducts = () => async (dispatch) => {
         stock: 9999, // Infinite stock since inventory is disabled
         sku: product.ppd_product_code || product.ProductCode,
         barcode: product.ppd_barcode || product.Barcode || product.ppd_product_code || product.ProductCode,
-        image: product.ppd_product_image || product.ProductImage || '',
+        image: (() => {
+          const rawImg = product.ppd_product_image || product.ProductImage || '';
+          if (rawImg && rawImg.includes('ProductPhotoPreview?ProductId=')) {
+            const id = product.ProductId || product.ppd_product_id;
+            return `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${id}.jpeg`;
+          }
+          return rawImg;
+        })(),
         Whcode: 'WH-01',
         hasMultipleBatches: false,
         totalBatches: 1,
@@ -208,7 +215,14 @@ export const fetchProductsBySubcategory = (subId) => async (dispatch) => {
         stock: 9999,
         sku: product.ppd_product_code || product.ProductCode,
         barcode: product.ppd_barcode || product.Barcode || product.ppd_product_code || product.ProductCode,
-        image: product.ppd_product_image || product.ProductImage || '',
+        image: (() => {
+          const rawImg = product.ppd_product_image || product.ProductImage || '';
+          if (rawImg && rawImg.includes('ProductPhotoPreview?ProductId=')) {
+            const id = product.ProductId || product.ppd_product_id;
+            return `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${id}.jpeg`;
+          }
+          return rawImg;
+        })(),
         Whcode: 'WH-01',
         hasMultipleBatches: false,
         totalBatches: 1,

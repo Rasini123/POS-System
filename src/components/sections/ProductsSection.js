@@ -1161,7 +1161,7 @@ const ProductsSection = () => {
         />
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes fadeIn {
           from {
             opacity: 0;

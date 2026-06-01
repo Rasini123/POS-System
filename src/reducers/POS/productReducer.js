@@ -66,8 +66,7 @@ const productReducer = (state = initialState, action) => {
       }
       
       const filtered = state.allProducts.filter(product => 
-        product.category === action.payload ||
-        product.category === parseInt(action.payload)
+        String(product.category) === String(action.payload)
       );
       
       return {

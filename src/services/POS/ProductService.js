@@ -77,6 +77,63 @@ export const productService = {
     return response.data.ResultSet?.[0] || response.data.Result || response.data;
   },
 
+  addProduct: async (productData) => {
+    const formData = new FormData();
+    formData.append("ProductCode", productData.ppd_product_code || productData.ProductCode || "");
+    formData.append("BarCode", productData.ppd_barcode || productData.BarCode || "");
+    formData.append("ProductName", productData.ppd_product_name || productData.ProductName || "");
+    formData.append("CategoryId", String(productData.ppd_category_id || productData.CategoryId || ""));
+    formData.append("SubCategoryId", String(productData.ppd_subcategory_id || productData.SubCategoryId || ""));
+    formData.append("Price", String(productData.ppd_price || productData.Price || "0"));
+    formData.append("IsActive", "A");
+    
+    // Use the File object if available, otherwise use the image string (for backward compatibility)
+    if (productData._imageFile && productData._imageFile instanceof File) {
+      formData.append("ProductImage", productData._imageFile);
+    } else if (productData.ppd_product_image && !productData.ppd_product_image.startsWith('blob:')) {
+      // Only append if it's not a blob URL and not empty
+      formData.append("ProductImage", productData.ppd_product_image);
+    }
+    
+    const response = await axios.post(`${API_URL}/Products/AddProductsDetails`, formData);
+    return response.data;
+  },
+
+  updateProduct: async (productData) => {
+    const formData = new FormData();
+    formData.append("ProductId", String(productData.ppd_product_id || productData.ProductId || ""));
+    formData.append("ProductCode", productData.ppd_product_code || productData.ProductCode || "");
+    formData.append("BarCode", productData.ppd_barcode || productData.BarCode || "");
+    formData.append("ProductName", productData.ppd_product_name || productData.ProductName || "");
+    formData.append("CategoryId", String(productData.ppd_category_id || productData.CategoryId || ""));
+    formData.append("SubCategoryId", String(productData.ppd_subcategory_id || productData.SubCategoryId || ""));
+    formData.append("Price", String(productData.ppd_price || productData.Price || "0"));
+    formData.append("IsActive", String(productData.ppd_is_active || productData.IsActive || "A"));
+    
+    // Use the File object if available, otherwise use the image string (for backward compatibility)
+    if (productData._imageFile && productData._imageFile instanceof File) {
+      formData.append("ProductImage", productData._imageFile);
+    } else if (productData.ppd_product_image && !productData.ppd_product_image.startsWith('blob:')) {
+      // Only append if it's not a blob URL and not empty
+      formData.append("ProductImage", productData.ppd_product_image);
+    }
+    
+    const response = await axios.post(`${API_URL}/Products/PutProductsDetails`, formData);
+    return response.data;
+  },
+
+  getProductById: async (productId) => {
+    const response = await axios.get(`${API_URL}/Products/GetProductsByProductId`, {
+      params: { ProductId: productId }
+    });
+    return response.data.ResultSet?.[0] || response.data.Result || response.data;
+  },
+
+  getProductPhotoPreviewUrl: (imageName) => {
+    if (!imageName) return "";
+    return `${API_URL}/Products/ProductPhotoPreview?imageName=${encodeURIComponent(imageName)}`;
+  },
+
   getProductImage: async (imageUrl) => {
     if (!imageUrl) return null;
     try {

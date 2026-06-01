@@ -3055,7 +3055,7 @@ const CartSection = ({ cartFocusMode = false }) => {
       </div>
 
       {/* Custom CSS for touch optimization */}
-      <style jsx>{`
+      <style>{`
         .hide-scrollbar {
           -ms-overflow-style: none;
           scrollbar-width: none;

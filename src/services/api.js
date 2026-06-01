@@ -1,5 +1,5 @@
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL ;
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://testrcc.dockyardsoftware.com';
 
 export const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
@@ -32,7 +32,7 @@ export const apiRequest = async (endpoint, options = {}) => {
 
 
 export const authAPI = {
-  login: (credentials) => apiRequest('/auth/login', {
+  login: (credentials) => apiRequest('/User/LoginUser', {
     method: 'POST',
     body: credentials
   }),
@@ -46,18 +46,15 @@ export const authAPI = {
 
 
 export const productsAPI = {
-  getAll: () => apiRequest('/products'),
-  getById: (id) => apiRequest(`/products/${id}`),
-  create: (product) => apiRequest('/products', {
+  getAll: () => apiRequest('/Products/GetAllProducts'),
+  getById: (id) => apiRequest(`/Products/GetProductsByProductId?ProductId=${id}`),
+  create: (product) => apiRequest('/Products/AddProductsDetails', {
     method: 'POST',
     body: product
   }),
-  update: (id, product) => apiRequest(`/products/${id}`, {
-    method: 'PUT',
+  update: (id, product) => apiRequest('/Products/PutProductsDetails', {
+    method: 'POST',
     body: product
-  }),
-  delete: (id) => apiRequest(`/products/${id}`, {
-    method: 'DELETE'
   })
 };
 
