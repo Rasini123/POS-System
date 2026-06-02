@@ -4,26 +4,34 @@ import { useDispatch, useSelector } from 'react-redux';
 import { closeModal, openModal } from '../../actions/modalActions';
 import Modal from '../common/Modal';
 import { invoiceService } from '../../services/POS/invoiceService';
+import { billService } from '../../services/POS/billService';
 
 const HistoryModal = () => {
   const dispatch = useDispatch();
   const { darkMode } = useSelector(state => state.ui);
 
   const [transactions, setTransactions] = useState([]);
+  const [billItems, setBillItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const products = useSelector(state => state.product?.allProducts || []);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       setLoading(true);
       try {
-        const billsData = await invoiceService.getAllBills();
+        const [billsData, itemsData] = await Promise.all([
+          invoiceService.getAllBills(),
+          billService.getAllBillItems()
+        ]);
         // data may be an array or an object containing arrays
         const list = Array.isArray(billsData) ? billsData : (billsData?.Bills || billsData?.ResultSet || []);
+        const bItems = Array.isArray(itemsData) ? itemsData : (itemsData?.ResultSet || itemsData || []);
         
         if (mounted) {
           setTransactions(list);
+          setBillItems(bItems);
         }
       } catch (err) {
         if (mounted) setError(String(err));
@@ -40,9 +48,25 @@ const HistoryModal = () => {
     const discountAmt = Number(transaction.DiscountAmount ?? 0);
     const totalAmt = Number(transaction.TotalAmount ?? netAmount + discountAmt);
 
+    const itemsForThisTxn = billItems.filter(bi => 
+      String(bi.BillId) === String(transaction.BillId) ||
+      String(bi.BillNo) === String(transaction.BillNo)
+    );
+
+    const mappedItems = itemsForThisTxn.map(bi => {
+      const prod = products.find(p => String(p.ProductId) === String(bi.ProductId)) || {};
+      return {
+        id: bi.BillItemId || bi.ProductId,
+        name: prod.ProductName || `Prod-${bi.ProductId}`,
+        quantity: Number(bi.Qty || 1),
+        price: Number(bi.UnitPrice || 0),
+        discountedPrice: Number(bi.UnitPrice || 0)
+      };
+    });
+
     // Open invoice receipt view
     dispatch(openModal('INVOICE', {
-      items: [],
+      items: mappedItems,
       subtotal: totalAmt, 
       total: netAmount,
       discount: discountAmt,

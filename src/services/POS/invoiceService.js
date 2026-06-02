@@ -116,6 +116,7 @@
 
 import axios from "axios";
 import { API_URL } from "../../config";
+import { billService } from "./billService";
 
 const getCreatedBillByNumber = async (billNo) => {
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -333,6 +334,26 @@ export const invoiceService = {
       
       if (!createdBill?.BillId) {
         throw new Error("Failed to retrieve created bill ID");
+      }
+
+      // Save each bill item via AddBillItemsDetails
+      if (items && items.length > 0) {
+        const billItemPromises = items.map(item => {
+          const qty = Number(item.quantity || item.qty || 1);
+          const unitPrice = Number(item.discountedPrice || item.price || 0);
+          const total = qty * unitPrice;
+
+          return billService.addBillItem({
+            BillId: createdBill.BillId,
+            ProductId: item.productId || item.id || "",
+            Qty: qty,
+            UnitPrice: unitPrice.toFixed(2),
+            Total: total.toFixed(2),
+            CreatedBy: userId
+          });
+        });
+
+        await Promise.all(billItemPromises);
       }
 
       return {

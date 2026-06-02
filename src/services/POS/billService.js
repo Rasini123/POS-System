@@ -7,6 +7,24 @@ export const billService = {
     return response.data.ResultSet || [];
   },
 
+  getAllBillItems: async () => {
+    const response = await axios.get(`${API_URL}/BillItems/GetAllBillItems`);
+    return response.data.ResultSet || response.data || [];
+  },
+
+  addBillItem: async (itemData) => {
+    const formData = new FormData();
+    formData.append("BillId", String(itemData.BillId || ""));
+    formData.append("ProductId", String(itemData.ProductId || ""));
+    formData.append("Qty", String(itemData.Qty || "1"));
+    formData.append("UnitPrice", String(itemData.UnitPrice || "0"));
+    formData.append("Total", String(itemData.Total || "0"));
+    formData.append("CreatedBy", String(itemData.CreatedBy || "1"));
+
+    const response = await axios.post(`${API_URL}/BillItems/AddBillItemsDetails`, formData);
+    return response.data;
+  },
+
   getBillById: async (billId) => {
     const formData = new FormData();
     formData.append("BillId", String(billId));

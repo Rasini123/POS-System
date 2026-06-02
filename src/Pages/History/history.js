@@ -14,6 +14,7 @@ const TransactionsHistory = () => {
   // Lists
   const [bills, setBills] = useState([]);
   const [billItems, setBillItems] = useState([]);
+
   const [selectedBill, setSelectedBill] = useState(null);
   const [selectedBillDetails, setSelectedBillDetails] = useState(null);
   
@@ -31,11 +32,14 @@ const TransactionsHistory = () => {
   const loadBills = async () => {
     setLoading(true);
     try {
-      const fetchedBills = await invoiceService.getAllBills();
+      const [fetchedBills, fetchedItems] = await Promise.all([
+        invoiceService.getAllBills(),
+        billService.getAllBillItems()
+      ]);
       
       const list = Array.isArray(fetchedBills) ? fetchedBills : (fetchedBills?.Bills || fetchedBills?.ResultSet || []);
-      const itemsList = []; // Array.isArray(fetchedItems) ? fetchedItems : (fetchedItems?.ResultSet || fetchedItems || []);
-      
+      const itemsList = Array.isArray(fetchedItems) ? fetchedItems : (fetchedItems?.ResultSet || fetchedItems || []);
+
       const sorted = [...list].sort((a, b) => new Date(b.BillDate || b.CreateDate) - new Date(a.BillDate || a.CreateDate));
       
       const formattedBills = sorted.map(b => ({
@@ -51,6 +55,7 @@ const TransactionsHistory = () => {
 
       setBills(formattedBills);
       setBillItems(itemsList);
+
     } catch (error) {
       triggerAlert('Failed to load transaction history.');
     } finally {
@@ -116,7 +121,7 @@ const TransactionsHistory = () => {
           cashier: `User ${apiBill.CreatedBy || apiBill.UserId || '1'}`
         };
         
-        const itemsForThisTxn = billItems.filter(bi => String(bi.BillId) === billIdStr || String(bi.BillNo) === billIdStr);
+        const itemsForThisTxn = billItems.filter(bi => String(bi.BillId) === String(mappedBill.pbd_bill_id) || String(bi.BillNo) === String(mappedBill.pbd_bill_no));
         const formattedItems = itemsForThisTxn.map(bi => {
           const prod = products.find(p => String(p.ProductId) === String(bi.ProductId)) || {};
           return {
@@ -142,9 +147,7 @@ const TransactionsHistory = () => {
     const bill = bills.find(b => b.pbd_bill_id === billIdStr);
     if (!bill) return;
 
-    // Filter raw API items by BillId or BillNo
-    const itemsForThisTxn = billItems.filter(bi => String(bi.BillId) === billIdStr || String(bi.BillNo) === billIdStr);
-
+    const itemsForThisTxn = billItems.filter(bi => String(bi.BillId) === String(bill.pbd_bill_id) || String(bi.BillNo) === String(bill.pbd_bill_no));
     const formattedItems = itemsForThisTxn.map(bi => {
       const prod = products.find(p => String(p.ProductId) === String(bi.ProductId)) || {};
       return {
@@ -166,7 +169,7 @@ const TransactionsHistory = () => {
   const getDetailsForPrint = (billIdStr) => {
     const bill = bills.find(b => b.pbd_bill_id === billIdStr);
     if (!bill) return null;
-    const itemsForThisTxn = billItems.filter(bi => String(bi.BillId) === billIdStr || String(bi.BillNo) === billIdStr);
+    const itemsForThisTxn = billItems.filter(bi => String(bi.BillId) === String(bill.pbd_bill_id) || String(bi.BillNo) === String(bill.pbd_bill_no));
     const formattedItems = itemsForThisTxn.map(bi => {
       const prod = products.find(p => String(p.ProductId) === String(bi.ProductId)) || {};
       return {
