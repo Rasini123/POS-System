@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { dbGetBills, dbGetBillItems, dbGetProducts, dbGetCategories, dbGetUsers } from '../../utils/mockDb';
+import { billService } from '../../services/POS/billService';
+import { productService } from '../../services/POS/ProductService';
+import { getUsersList } from '../../services/userService';
 import { FiPrinter, FiSearch, FiFileText } from 'react-icons/fi';
 
 const fmt = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -10,6 +12,7 @@ const REPORT_TYPES = [
   { id: 'sales_summary', label: 'Sales Summary' },
   { id: 'item_sales', label: 'Item Sales' },
   { id: 'category_sales', label: 'Category Sales' },
+  { id: 'user_sales', label: 'User Sales' },
   { id: 'cashier_sales', label: 'Cashier Sales' },
   { id: 'tax_discount', label: 'Tax & Discount' }
 ];
@@ -30,18 +33,34 @@ export default function ReportsPage() {
   const [data, setData] = useState({ bills: [], items: [], products: [], categories: [], users: [] });
 
   useEffect(() => {
-    setData({
-      bills: dbGetBills(),
-      items: dbGetBillItems(),
-      products: dbGetProducts(),
-      categories: dbGetCategories(),
-      users: dbGetUsers(),
-    });
+    const loadData = async () => {
+      try {
+        const [bills, items, products, categories, usersData] = await Promise.all([
+          billService.getAllBills(),
+          billService.getAllBillItems(),
+          productService.getAllProducts(),
+          productService.getAllCategories(),
+          getUsersList(),
+        ]);
+        setData({
+          bills: Array.isArray(bills) ? bills : [],
+          items: Array.isArray(items) ? items : [],
+          products: Array.isArray(products) ? products : [],
+          categories: Array.isArray(categories) ? categories : [],
+          users: usersData?.ResultSet || (Array.isArray(usersData) ? usersData : []),
+        });
+      } catch (error) {
+        console.error("Failed to load report data:", error);
+      }
+    };
+    loadData();
   }, []);
 
   // Filter Data
   const filteredBills = data.bills.filter(b => {
-    const d = new Date(b.pbd_bill_date);
+    const billDate = b.pbd_bill_date || b.BillDate;
+    if (!billDate) return false;
+    const d = new Date(billDate);
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
     const end = new Date(endDate);
@@ -49,14 +68,14 @@ export default function ReportsPage() {
     return d >= start && d <= end;
   });
 
-  const filteredBillIds = new Set(filteredBills.map(b => b.pbd_bill_id));
-  const filteredItems = data.items.filter(i => filteredBillIds.has(i.pid_bill_id));
+  const filteredBillIds = new Set(filteredBills.map(b => b.pbd_bill_id || b.BillId));
+  const filteredItems = data.items.filter(i => filteredBillIds.has(i.pid_bill_id || i.BillId));
 
-  const totalGross = filteredBills.reduce((acc, b) => acc + b.pbd_total_amount, 0);
-  const totalDiscount = filteredBills.reduce((acc, b) => acc + b.pbd_discount_amount, 0);
-  const totalNet = filteredBills.reduce((acc, b) => acc + b.pbd_net_amount, 0);
-  const cashSales = filteredBills.filter(b => b.pbd_payment_type === 'Cash').reduce((acc, b) => acc + b.pbd_net_amount, 0);
-  const cardSales = filteredBills.filter(b => b.pbd_payment_type === 'Card').reduce((acc, b) => acc + b.pbd_net_amount, 0);
+  const totalGross = filteredBills.reduce((acc, b) => acc + Number(b.pbd_total_amount || b.TotalAmount || 0), 0);
+  const totalDiscount = filteredBills.reduce((acc, b) => acc + Number(b.pbd_discount_amount || b.DiscountAmount || 0), 0);
+  const totalNet = filteredBills.reduce((acc, b) => acc + Number(b.pbd_net_amount || b.NetAmount || 0), 0);
+  const cashSales = filteredBills.filter(b => (b.pbd_payment_type === 'Cash' || b.PaymentType === 'CASH' || String(b.PaymentType).toUpperCase() === 'C')).reduce((acc, b) => acc + Number(b.pbd_net_amount || b.NetAmount || 0), 0);
+  const cardSales = filteredBills.filter(b => (b.pbd_payment_type === 'Card' || b.PaymentType === 'CARD')).reduce((acc, b) => acc + Number(b.pbd_net_amount || b.NetAmount || 0), 0);
 
   // Styling (Minimal / Monochrome)
   const bgMain = darkMode ? 'bg-gray-900 text-gray-200' : 'bg-gray-50 text-gray-800';
@@ -85,13 +104,14 @@ export default function ReportsPage() {
     } else if (activeReport === 'item_sales') {
       const iMap = {};
       filteredItems.forEach(i => {
-        if(!iMap[i.pid_product_id]) iMap[i.pid_product_id] = { qty: 0, val: 0 };
-        iMap[i.pid_product_id].qty += i.pid_qty;
-        iMap[i.pid_product_id].val += i.pid_total;
+        const pId = i.pid_product_id || i.ProductId;
+        if(!iMap[pId]) iMap[pId] = { qty: 0, val: 0 };
+        iMap[pId].qty += Number(i.pid_qty || i.Qty || 0);
+        iMap[pId].val += Number(i.pid_total || i.Total || 0);
       });
       const rows = Object.entries(iMap).map(([pid, d]) => {
-        const p = data.products.find(x => x.ppd_product_id === parseInt(pid));
-        return { name: p?.ppd_product_name || 'Unknown', ...d };
+        const p = data.products.find(x => String(x.ppd_product_id || x.ProductId) === String(pid));
+        return { name: p?.ppd_product_name || p?.ProductName || 'Unknown', ...d };
       }).sort((a,b) => b.val - a.val);
 
       reportContent = `
@@ -111,15 +131,16 @@ export default function ReportsPage() {
     } else if (activeReport === 'category_sales') {
       const cMap = {};
       filteredItems.forEach(i => {
-        const p = data.products.find(x => x.ppd_product_id === i.pid_product_id);
-        const catId = p?.ppd_category_id || 0;
+        const pId = i.pid_product_id || i.ProductId;
+        const p = data.products.find(x => String(x.ppd_product_id || x.ProductId) === String(pId));
+        const catId = p?.ppd_category_id || p?.CategoryId || 0;
         if(!cMap[catId]) cMap[catId] = { qty: 0, val: 0 };
-        cMap[catId].qty += i.pid_qty;
-        cMap[catId].val += i.pid_total;
+        cMap[catId].qty += Number(i.pid_qty || i.Qty || 0);
+        cMap[catId].val += Number(i.pid_total || i.Total || 0);
       });
       const rows = Object.entries(cMap).map(([cid, d]) => {
-        const c = data.categories.find(x => x.pcd_category_id === parseInt(cid));
-        return { name: c?.pcd_category_name || 'Unknown', ...d };
+        const c = data.categories.find(x => String(x.pcd_category_id || x.CategoryId) === String(cid));
+        return { name: c?.pcd_category_name || c?.CategoryName || 'Unknown', ...d };
       }).sort((a,b) => b.val - a.val);
 
       reportContent = `
@@ -136,16 +157,47 @@ export default function ReportsPage() {
           <span class="right" style="width: 30%;">${fmt(r.val)}</span>
         </div>
       `).join('');
+    } else if (activeReport === 'user_sales') {
+      const uMap = {};
+      filteredBills.forEach(b => {
+        const uId = b.pbd_user_id || b.UserId || b.CreatedBy || 0;
+        if(!uMap[uId]) uMap[uId] = { count: 0, val: 0 };
+        uMap[uId].count += 1;
+        uMap[uId].val += Number(b.pbd_net_amount || b.NetAmount || 0);
+      });
+      const rows = Object.entries(uMap).map(([uid, d]) => {
+        const u = data.users.find(x => String(x.pud_user_id || x.UserId) === String(uid));
+        return { name: u?.pud_username || u?.UserName || 'Unknown', role: u?.pud_role_name || u?.RoleName || '-', ...d };
+      }).sort((a,b) => b.val - a.val);
+
+      reportContent = `
+        <div class="line bold uppercase">
+          <span class="left" style="width: 40%;">User (Role)</span>
+          <span class="right" style="width: 25%;">Count</span>
+          <span class="right" style="width: 35%;">Net</span>
+        </div>
+        <div class="divider"></div>
+      ` + rows.map(r => `
+        <div class="line">
+          <span class="left" style="width: 40%; font-size:11px;">${r.name} (${r.role})</span>
+          <span class="right" style="width: 25%;">${r.count}</span>
+          <span class="right" style="width: 35%;">${fmt(r.val)}</span>
+        </div>
+      `).join('');
     } else if (activeReport === 'cashier_sales') {
       const uMap = {};
       filteredBills.forEach(b => {
-        if(!uMap[b.pbd_user_id]) uMap[b.pbd_user_id] = { count: 0, val: 0 };
-        uMap[b.pbd_user_id].count += 1;
-        uMap[b.pbd_user_id].val += b.pbd_net_amount;
+        const uId = b.pbd_user_id || b.UserId || b.CreatedBy || 0;
+        const u = data.users.find(x => String(x.pud_user_id || x.UserId) === String(uId));
+        if (u && String(u.pud_role_name || u.RoleName).toLowerCase() === 'cashier') {
+          if(!uMap[uId]) uMap[uId] = { count: 0, val: 0 };
+          uMap[uId].count += 1;
+          uMap[uId].val += Number(b.pbd_net_amount || b.NetAmount || 0);
+        }
       });
       const rows = Object.entries(uMap).map(([uid, d]) => {
-        const u = data.users.find(x => x.pud_user_id === parseInt(uid));
-        return { name: u?.pud_username || 'Unknown', ...d };
+        const u = data.users.find(x => String(x.pud_user_id || x.UserId) === String(uid));
+        return { name: u?.pud_username || u?.UserName || 'Unknown', ...d };
       }).sort((a,b) => b.val - a.val);
 
       reportContent = `
@@ -350,13 +402,14 @@ export default function ReportsPage() {
                   {(() => {
                     const iMap = {};
                     filteredItems.forEach(i => {
-                      if(!iMap[i.pid_product_id]) iMap[i.pid_product_id] = { qty: 0, val: 0 };
-                      iMap[i.pid_product_id].qty += i.pid_qty;
-                      iMap[i.pid_product_id].val += i.pid_total;
+                      const pId = i.pid_product_id || i.ProductId;
+                      if(!iMap[pId]) iMap[pId] = { qty: 0, val: 0 };
+                      iMap[pId].qty += Number(i.pid_qty || i.Qty || 0);
+                      iMap[pId].val += Number(i.pid_total || i.Total || 0);
                     });
                     const rows = Object.entries(iMap).map(([pid, itemData]) => {
-                      const p = data.products.find(x => x.ppd_product_id === parseInt(pid));
-                      return { code: p?.ppd_product_code || '-', name: p?.ppd_product_name || 'Unknown', ...itemData };
+                      const p = data.products.find(x => String(x.ppd_product_id || x.ProductId) === String(pid));
+                      return { code: p?.ppd_product_code || p?.ProductCode || '-', name: p?.ppd_product_name || p?.ProductName || 'Unknown', ...itemData };
                     }).sort((a,b) => b.val - a.val);
 
                     if(rows.length === 0) return <tr><td colSpan="4" className={`${tdStyle} text-center py-6`}>No items sold</td></tr>;
@@ -388,15 +441,16 @@ export default function ReportsPage() {
                   {(() => {
                     const cMap = {};
                     filteredItems.forEach(i => {
-                      const p = data.products.find(x => x.ppd_product_id === i.pid_product_id);
-                      const catId = p?.ppd_category_id || 0;
+                      const pId = i.pid_product_id || i.ProductId;
+                      const p = data.products.find(x => String(x.ppd_product_id || x.ProductId) === String(pId));
+                      const catId = p?.ppd_category_id || p?.CategoryId || 0;
                       if(!cMap[catId]) cMap[catId] = { qty: 0, val: 0 };
-                      cMap[catId].qty += i.pid_qty;
-                      cMap[catId].val += i.pid_total;
+                      cMap[catId].qty += Number(i.pid_qty || i.Qty || 0);
+                      cMap[catId].val += Number(i.pid_total || i.Total || 0);
                     });
                     const rows = Object.entries(cMap).map(([cid, d]) => {
-                      const c = data.categories.find(x => x.pcd_category_id === parseInt(cid));
-                      return { name: c?.pcd_category_name || 'Unknown', ...d };
+                      const c = data.categories.find(x => String(x.pcd_category_id || x.CategoryId) === String(cid));
+                      return { name: c?.pcd_category_name || c?.CategoryName || 'Unknown', ...d };
                     }).sort((a,b) => b.val - a.val);
 
                     if(rows.length === 0) return <tr><td colSpan="3" className={`${tdStyle} text-center py-6`}>No data</td></tr>;
@@ -413,7 +467,49 @@ export default function ReportsPage() {
               </table>
             )}
 
-            {/* 4. CASHIER SALES */}
+            {/* 4. USER SALES */}
+            {activeReport === 'user_sales' && (
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className={thStyle}>User ID</th>
+                    <th className={thStyle}>User Name</th>
+                    <th className={thStyle}>Role</th>
+                    <th className={`${thStyle} text-right`}>Invoice Count</th>
+                    <th className={`${thStyle} text-right`}>Net Sales</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const uMap = {};
+                    filteredBills.forEach(b => {
+                      const uId = b.pbd_user_id || b.UserId || b.CreatedBy || 0;
+                      if(!uMap[uId]) uMap[uId] = { count: 0, val: 0 };
+                      uMap[uId].count += 1;
+                      uMap[uId].val += Number(b.pbd_net_amount || b.NetAmount || 0);
+                    });
+                    const rows = Object.entries(uMap).map(([uid, d]) => {
+                      const u = data.users.find(x => String(x.pud_user_id || x.UserId) === String(uid));
+                      return { id: uid, name: u?.pud_username || u?.UserName || 'Unknown', role: u?.pud_role_name || u?.RoleName || '-', ...d };
+                    }).sort((a,b) => b.val - a.val);
+
+                    if(rows.length === 0) return <tr><td colSpan="5" className={`${tdStyle} text-center py-6`}>No data</td></tr>;
+
+                    return rows.map((r, i) => (
+                      <tr key={i} className={`hover:${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                        <td className={tdStyle}>{r.id}</td>
+                        <td className={tdStyle}>{r.name}</td>
+                        <td className={tdStyle}>{r.role}</td>
+                        <td className={`${tdStyle} text-right`}>{r.count}</td>
+                        <td className={`${tdStyle} text-right`}>{fmt(r.val)}</td>
+                      </tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            )}
+
+            {/* 5. CASHIER SALES */}
             {activeReport === 'cashier_sales' && (
               <table className="w-full border-collapse">
                 <thead>
@@ -428,13 +524,17 @@ export default function ReportsPage() {
                   {(() => {
                     const uMap = {};
                     filteredBills.forEach(b => {
-                      if(!uMap[b.pbd_user_id]) uMap[b.pbd_user_id] = { count: 0, val: 0 };
-                      uMap[b.pbd_user_id].count += 1;
-                      uMap[b.pbd_user_id].val += b.pbd_net_amount;
+                      const uId = b.pbd_user_id || b.UserId || b.CreatedBy || 0;
+                      const u = data.users.find(x => String(x.pud_user_id || x.UserId) === String(uId));
+                      if (u && String(u.pud_role_name || u.RoleName).toLowerCase() === 'cashier') {
+                        if(!uMap[uId]) uMap[uId] = { count: 0, val: 0 };
+                        uMap[uId].count += 1;
+                        uMap[uId].val += Number(b.pbd_net_amount || b.NetAmount || 0);
+                      }
                     });
                     const rows = Object.entries(uMap).map(([uid, d]) => {
-                      const u = data.users.find(x => x.pud_user_id === parseInt(uid));
-                      return { id: uid, name: u?.pud_username || 'Unknown', ...d };
+                      const u = data.users.find(x => String(x.pud_user_id || x.UserId) === String(uid));
+                      return { id: uid, name: u?.pud_username || u?.UserName || 'Unknown', ...d };
                     }).sort((a,b) => b.val - a.val);
 
                     if(rows.length === 0) return <tr><td colSpan="4" className={`${tdStyle} text-center py-6`}>No data</td></tr>;
