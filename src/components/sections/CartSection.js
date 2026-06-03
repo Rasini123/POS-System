@@ -2582,35 +2582,18 @@ const CartSection = ({ cartFocusMode = false }) => {
           {/* Hold/Resume buttons */}
           {isFirstTab && (
             <>
-              {/* Show Resume button if current tab is held OR there are held sales */}
-              {(isHeld || hasHeldSales) ? (
-                <div className="flex gap-1">
-                  {/* Resume current sale button if current tab is held */}
-                  {isHeld && saleId && (
-                    <button
-                      onClick={handleResumeCurrentHeldSale}
-                      disabled={resumeLoading}
-                      className="w-6 h-6 rounded bg-green-500 text-white flex items-center justify-center transition-all hover:bg-green-600 text-xs disabled:opacity-50"
-                      title="Resume Current Sale"
-                    >
-                      <FiPlay className="w-3 h-3" />
-                    </button>
-                  )}
-
-                  {/* Resume modal button for other held sales */}
-                  {hasHeldSales && (
-                    <button
-                      onClick={openResumeModal}
-                      disabled={resumeLoading}
-                      className="w-6 h-6 rounded bg-blue-500 text-white flex items-center justify-center transition-all hover:bg-blue-600 text-xs disabled:opacity-50"
-                      title="Resume Held Sale"
-                    >
-                      <i className="fas fa-list"></i>
-                    </button>
-                  )}
-                </div>
-              ) : (
-                /* Hold button when no held sales and cart has items */
+              {/* Button to view held sales (always visible) */}
+              <button
+                onClick={openResumeModal}
+                disabled={resumeLoading}
+                className="w-6 h-6 rounded bg-blue-500 text-white flex items-center justify-center transition-all hover:bg-blue-600 text-xs disabled:opacity-50"
+                title="View Held Sales"
+              >
+                <i className="fas fa-shopping-cart"></i>
+              </button>
+              
+              {/* Hold Sale Button (visible if current sale is not held) */}
+              {!isHeld && (
                 <button
                   onClick={handleHoldSale}
                   disabled={holdLoading || items.length === 0}
@@ -2621,6 +2604,18 @@ const CartSection = ({ cartFocusMode = false }) => {
                   title={items.length === 0 ? "Cart is empty" : "Hold Sale"}
                 >
                   <FiPause className="w-3 h-3" />
+                </button>
+              )}
+
+              {/* Resume current sale button if current tab is held */}
+              {isHeld && saleId && (
+                <button
+                  onClick={handleResumeCurrentHeldSale}
+                  disabled={resumeLoading}
+                  className="w-6 h-6 rounded bg-green-500 text-white flex items-center justify-center transition-all hover:bg-green-600 text-xs disabled:opacity-50"
+                  title="Resume Current Sale"
+                >
+                  <FiPlay className="w-3 h-3" />
                 </button>
               )}
             </>

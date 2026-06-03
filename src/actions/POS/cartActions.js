@@ -883,10 +883,10 @@ export const resumeSale = (saleId) => async (dispatch, getState) => {
     
     const sessionId = cartService.getSessionId(products.allProducts);
     
+    const heldSales = cartService.getHeldSales();
+    const heldSale = heldSales.find(sale => sale.saleId === saleId);
     
-    const holdListResponse = await cartService.getHoldList(sessionId, saleId);
-    
-    if (!holdListResponse.ResultSet || holdListResponse.ResultSet.length === 0) {
+    if (!heldSale || !heldSale.items || heldSale.items.length === 0) {
       throw new Error('No held items found for this sale');
     }
 
@@ -897,57 +897,7 @@ export const resumeSale = (saleId) => async (dispatch, getState) => {
     cartService.setSaleId(saleId);
     dispatch(setSaleId(saleId));
     
-    const heldItems = holdListResponse.ResultSet;
-     
-    const productMap = new Map();
-    
-    heldItems.forEach(item => {
-      const productCode = item.Cart_Procode;
-      const batchId = item.Cart_BatchId ;
-      const uniqueId = `${productCode}_B${batchId}`;
-      const quantity = parseFloat(item.Cart_Qty);
-      const price = parseFloat(item.Cart_UnitPrice);
-      
-      if (productMap.has(uniqueId)) {
-        const existing = productMap.get(uniqueId);
-        productMap.set(uniqueId, {
-          ...existing,
-          quantity: existing.quantity + quantity
-        });
-      } else {
-        const productDetails = products.allProducts.find(p => 
-          (p.productId === productCode || p.id === productCode) && 
-          (p.batchId === batchId || !p.batchId)
-        );
-        
-        if (productDetails) {
-
-          const matchingBatch = productDetails.allBatches?.find(
-    b => b.batchId === batchId
-  );
-
-  const batchStock = matchingBatch ? parseFloat(matchingBatch.stock) || 0 : 0;
-            
-          productMap.set(uniqueId, {
-            id: uniqueId,
-            productId: productCode,
-            batchId: batchId,
-            name: productDetails.name,
-            price: price,
-            quantity: quantity,
-            stock: batchStock,
-            image: productDetails.image,
-            discountType: productDetails.discountType,
-            discountValue: productDetails.discountValue,
-            Whcode: productDetails.Whcode,
-            isBatchProduct: productDetails.isBatchProduct
-          });
-        }
-      }
-    });
-    
-    
-    productMap.forEach(item => {
+    heldSale.items.forEach(item => {
       for (let i = 0; i < item.quantity; i++) {
         dispatch({
           type: ADD_TO_CART,
@@ -959,17 +909,13 @@ export const resumeSale = (saleId) => async (dispatch, getState) => {
       }
     });
     
-    cartService.removeFromHeldSales(saleId);
+    dispatch(renameTab(getState().cart.activeTabId, `Resumed: ${heldSale.tabName}`));
     
-    const heldSales = cartService.getHeldSales();
-    const heldSale = heldSales.find(sale => sale.saleId === saleId);
-    if (heldSale) {
-      dispatch(renameTab(getState().cart.activeTabId, `Resumed: ${heldSale.tabName}`));
-    }
+    cartService.removeFromHeldSales(saleId);
     
     dispatch({ 
       type: RESUME_SALE_SUCCESS,
-      payload: { saleId, items: Array.from(productMap.values()) }
+      payload: { saleId, items: heldSale.items }
     });
     
     return { success: true, saleId };  
