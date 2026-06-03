@@ -283,14 +283,14 @@ const TransactionsHistory = () => {
     const matchPayment = paymentFilter === 'all' || b.pbd_payment_type.toLowerCase() === paymentFilter.toLowerCase();
     
     let matchDate = true;
+    const billDate = new Date(b.pbd_bill_date);
     if (startDate) {
-      matchDate = matchDate && new Date(b.pbd_bill_date) >= new Date(startDate);
+      const sDate = new Date(startDate + 'T00:00:00');
+      matchDate = matchDate && billDate >= sDate;
     }
     if (endDate) {
-      // Set end date to end of the day
-      const eDate = new Date(endDate);
-      eDate.setHours(23, 59, 59, 999);
-      matchDate = matchDate && new Date(b.pbd_bill_date) <= eDate;
+      const eDate = new Date(endDate + 'T23:59:59.999');
+      matchDate = matchDate && billDate <= eDate;
     }
     return matchSearch && matchPayment && matchDate;
   });

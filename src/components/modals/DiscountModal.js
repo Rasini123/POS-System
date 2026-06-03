@@ -161,6 +161,7 @@ import { FiPercent, FiDollarSign, FiUser, FiTag, FiX, FiCheckCircle } from 'reac
 const DiscountModal = () => {
   const dispatch = useDispatch();
 
+  const user = useSelector(state => state.auth?.user);
   const cartState = useSelector(state => state.cart);
   const tabs = cartState?.tabs || [];
   const activeTabId = cartState?.activeTabId || 'tab-1';
@@ -229,7 +230,9 @@ const DiscountModal = () => {
     }
 
     const value = parseFloat(discountValue);
-    if ((discountType === 'percent' && value > 5) || (discountType === 'amount' && value > 5000)) {
+    const isAdmin = user?.userType === 'A' || String(user?.userType).toLowerCase() === 'admin' || user?.RoleName === 'Admin';
+
+    if (!isAdmin && ((discountType === 'percent' && value > 5) || (discountType === 'amount' && value > 5000))) {
       setShowAdminLogin(true);
     } else {
       applyDiscountNow();

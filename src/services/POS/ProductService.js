@@ -42,9 +42,11 @@ export const productService = {
 
   getCategoryById: async (categoryId) => {
     const response = await axios.get(`${API_URL}/Categories/GetCategoriesByCategoryId`, {
-      params: { CategoryId: categoryId }
+      params: { CategoryId: String(categoryId) }
     });
-    return response.data.ResultSet?.[0] || response.data.Result || response.data;
+    return Array.isArray(response.data.ResultSet) 
+      ? response.data.ResultSet[0] 
+      : response.data.ResultSet || response.data.Result || response.data;
   },
 
   getAllSubcategories: async () => {
@@ -72,9 +74,11 @@ export const productService = {
 
   getSubcategoryById: async (subcategoryId) => {
     const response = await axios.get(`${API_URL}/SubCategories/GetSubCategoriesBySubCategoryId`, {
-      params: { SubCategoryId: subcategoryId }
+      params: { SubCategoryId: String(subcategoryId) }
     });
-    return response.data.ResultSet?.[0] || response.data.Result || response.data;
+    return Array.isArray(response.data.ResultSet) 
+      ? response.data.ResultSet[0] 
+      : response.data.ResultSet || response.data.Result || response.data;
   },
 
   addProduct: async (productData) => {
@@ -124,9 +128,11 @@ export const productService = {
 
   getProductById: async (productId) => {
     const response = await axios.get(`${API_URL}/Products/GetProductsByProductId`, {
-      params: { ProductId: productId }
+      params: { ProductId: String(productId) }
     });
-    return response.data.ResultSet?.[0] || response.data.Result || response.data;
+    return Array.isArray(response.data.ResultSet) 
+      ? response.data.ResultSet[0] 
+      : response.data.ResultSet || response.data.Result || response.data;
   },
 
   getProductPhotoPreviewUrl: (imageName) => {

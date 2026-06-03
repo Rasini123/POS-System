@@ -4,11 +4,7 @@ import {
   FiPlus, FiSearch, FiEdit3, FiEye, FiTrash2, FiTag, FiFolder, 
   FiFolderPlus, FiImage, FiGrid, FiDollarSign, FiHash, FiCheckCircle, FiX 
 } from 'react-icons/fi';
-import { 
-  dbGetProducts, dbSaveProduct, dbToggleProductStatus, 
-  dbGetCategories, dbSaveCategory, dbToggleCategoryStatus,
-  dbGetSubcategories, dbSaveSubcategory, dbToggleSubcatStatus 
-} from '../../utils/mockDb';
+// removed mockDb imports
 import { productService } from '../../services/POS/ProductService';
 
 const ProductManagement = () => {
@@ -69,32 +65,6 @@ const ProductManagement = () => {
         console.warn('Failed to fetch products from API:', err.message);
       }
 
-      // If API failed or returned empty, use local DB
-      if (apiProducts.length === 0) {
-        apiProducts = dbGetProducts();
-      } else {
-        // Merge API products with local DB products (prefer API, but keep local if not in API)
-        // Use a map to deduplicate by product ID
-        const productMap = new Map();
-        
-        // First, add API products (they take priority)
-        apiProducts.forEach(p => {
-          const id = String(p.ProductId || p.ppd_product_id);
-          productMap.set(id, p);
-        });
-        
-        // Then, add local products that are not in API
-        const localProducts = dbGetProducts();
-        localProducts.forEach(p => {
-          const id = String(p.ppd_product_id);
-          if (!productMap.has(id)) {
-            productMap.set(id, p);
-          }
-        });
-        
-        apiProducts = Array.from(productMap.values());
-      }
-
       // Map API products to state format
       const mapped = apiProducts.map(p => ({
         ppd_product_id: p.ProductId || p.ppd_product_id,
@@ -143,7 +113,7 @@ const ProductManagement = () => {
       setProducts(mapped);
     } catch (err) {
       console.error('Error loading products:', err);
-      setProducts(dbGetProducts());
+      setProducts([]);
     }
     
     // Load categories from API, fallback to mockDb
@@ -157,11 +127,11 @@ const ProductManagement = () => {
         }));
         setCategories(mapped);
       } else {
-        setCategories(dbGetCategories());
+        setCategories([]);
       }
     } catch {
-      console.warn('Failed to fetch categories from API, using local DB');
-      setCategories(dbGetCategories());
+      console.warn('Failed to fetch categories from API');
+      setCategories([]);
     }
 
     // Load subcategories from API, fallback to mockDb
@@ -176,10 +146,11 @@ const ProductManagement = () => {
         }));
         setSubcategories(mapped);
       } else {
-        setSubcategories(dbGetSubcategories());
+        setSubcategories([]);
       }
     } catch {
-      setSubcategories(dbGetSubcategories());
+      console.warn('Failed to fetch subcategories from API');
+      setSubcategories([]);
     }
   };
 
@@ -249,29 +220,15 @@ const ProductManagement = () => {
           if (response.StatusCode === 200) {
             triggerAlert('Product added successfully!');
             success = true;
-            // Save locally for better UX
-            dbSaveProduct({
-              ...payload,
-              ppd_product_image: null // Don't store the preview URL, API will handle it
-            });
           } else {
             triggerAlert(response.Result || 'Product added!');
             success = true;
-            dbSaveProduct({
-              ...payload,
-              ppd_product_image: null
-            });
           }
         }
       } catch (apiErr) {
         console.error('API Error:', apiErr);
-        // Fallback to local storage if API fails or offline
-        dbSaveProduct({
-          ...payload,
-          ppd_product_image: null
-        });
-        triggerAlert(currentProduct.ppd_product_id ? 'Product updated locally (offline mode)' : 'Product added locally (offline mode)');
-        success = true;
+        triggerAlert('Error saving product to API', 'error');
+        success = false;
       }
 
       if (success) {
@@ -408,9 +365,8 @@ const ProductManagement = () => {
       }
       await refreshAllData();
     } catch (err) {
-      dbToggleProductStatus(id);
-      await refreshAllData();
-      triggerAlert('Product status updated (offline mode)');
+      console.error(err);
+      triggerAlert('Failed to update product status on API', 'error');
     }
   };
 
@@ -427,9 +383,8 @@ const ProductManagement = () => {
       }
       await refreshAllData();
     } catch (err) {
-      dbToggleCategoryStatus(id);
-      await refreshAllData();
-      triggerAlert('Category status updated (offline mode)');
+      console.error(err);
+      triggerAlert('Failed to update category status on API', 'error');
     }
   };
 
@@ -451,17 +406,17 @@ const ProductManagement = () => {
       }
       await refreshAllData();
     } catch (err) {
-      dbToggleSubcatStatus(id);
-      await refreshAllData();
-      triggerAlert('Subcategory status updated (offline mode)');
+      console.error(err);
+      triggerAlert('Failed to update subcategory status on API', 'error');
     }
   };
 
   // Filtering
   const filteredProducts = products.filter(p => {
-    const matchSearch = p.ppd_product_name.toLowerCase().includes(prodSearch.toLowerCase()) ||
+    const matchSearch = String(p.ppd_product_id) === prodSearch.trim() ||
+                        p.ppd_product_name.toLowerCase().includes(prodSearch.toLowerCase()) ||
                         p.ppd_product_code.toLowerCase().includes(prodSearch.toLowerCase()) ||
-                        p.ppd_barcode.includes(prodSearch);
+                        p.ppd_barcode.toLowerCase().includes(prodSearch.toLowerCase());
     const matchCat = selectedCatFilter === 'all' || p.ppd_category_id === parseInt(selectedCatFilter);
     return matchSearch && matchCat;
   });
@@ -472,6 +427,50 @@ const ProductManagement = () => {
 
   const getSubcategoryName = (id) => {
     return subcategories.find(s => String(s.psd_subcategory_id) === String(id))?.psd_subcategory_name || 'None';
+  };
+
+  const handleApiSearch = async () => {
+    if (!prodSearch.trim()) {
+      triggerAlert('Please enter a product ID, code, barcode, or name to search', 'error');
+      return;
+    }
+    const query = prodSearch.trim().toLowerCase();
+    
+    // Find matching product locally
+    const match = products.find(p => 
+      String(p.ppd_product_id) === query ||
+      p.ppd_product_name.toLowerCase() === query ||
+      p.ppd_product_code.toLowerCase() === query ||
+      p.ppd_barcode.toLowerCase() === query
+    );
+
+    if (match) {
+      try {
+        const apiProductRaw = await productService.getProductById(match.ppd_product_id);
+        if (apiProductRaw) {
+           const updatedProduct = {
+             ...match,
+             ppd_product_name: apiProductRaw.ProductName || match.ppd_product_name,
+             ppd_price: parseFloat(apiProductRaw.Price || match.ppd_price),
+             ppd_product_code: apiProductRaw.ProductCode || match.ppd_product_code,
+             ppd_barcode: apiProductRaw.BarCode || match.ppd_barcode,
+             ppd_category_id: apiProductRaw.CategoryId ? parseInt(apiProductRaw.CategoryId) : match.ppd_category_id,
+             ppd_subcategory_id: apiProductRaw.SubCategoryId ? parseInt(apiProductRaw.SubCategoryId) : match.ppd_subcategory_id,
+             ppd_product_image: apiProductRaw.ProductImage || match.ppd_product_image,
+             ppd_is_active: apiProductRaw.IsActive || match.ppd_is_active
+           };
+           setProducts(products.map(p => p.ppd_product_id === match.ppd_product_id ? updatedProduct : p));
+           triggerAlert('Product data refreshed from API');
+        } else {
+           triggerAlert('Product not found via API', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        triggerAlert('Error connecting to API', 'error');
+      }
+    } else {
+      triggerAlert(`No products found matching "${prodSearch}" in the system.`, 'error');
+    }
   };
 
   return (
@@ -533,17 +532,26 @@ const ProductManagement = () => {
         <div className="flex-grow flex flex-col overflow-hidden">
           {/* Action Bar */}
           <div className="flex flex-col md:flex-row gap-3 mb-6">
-            <div className="relative flex-grow">
-              <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search by code, barcode, or product name..."
-                value={prodSearch}
-                onChange={(e) => setProdSearch(e.target.value)}
-                className={`w-full pl-11 pr-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all ${
-                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
-                }`}
-              />
+            <div className="relative flex-grow flex shadow-sm rounded-xl">
+              <div className="relative flex-grow">
+                <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
+                <input
+                  type="text"
+                  placeholder="Search by code, barcode, or product name..."
+                  value={prodSearch}
+                  onChange={(e) => setProdSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleApiSearch(); }}
+                  className={`w-full pl-11 pr-4 py-2.5 rounded-l-xl border border-r-0 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all ${
+                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                  }`}
+                />
+              </div>
+              <button
+                onClick={handleApiSearch}
+                className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-r-xl font-bold transition-all border border-teal-600 shadow-sm"
+              >
+                Search
+              </button>
             </div>
             
             <div className="flex gap-2">
@@ -574,6 +582,7 @@ const ProductManagement = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className={`sticky top-0 z-10 ${darkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-gray-50 border-b border-gray-200'}`}>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">ID</th>
                   <th className="px-6 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Image</th>
                   <th className="px-6 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Code/Barcode</th>
                   <th className="px-6 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Product Name</th>
@@ -586,6 +595,9 @@ const ProductManagement = () => {
               <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
                 {filteredProducts.map((prod) => (
                   <tr key={prod.ppd_product_id} className={`transition-colors ${darkMode ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50'}`}>
+                    <td className="px-6 py-3 whitespace-nowrap text-sm font-bold opacity-60">
+                      {prod.ppd_product_id}
+                    </td>
                     <td className="px-6 py-3 whitespace-nowrap">
                       <div className="w-12 h-12 rounded-xl overflow-hidden shadow border border-gray-200 dark:border-gray-700 bg-gray-100 flex items-center justify-center">
                         {prod.ppd_product_image ? (

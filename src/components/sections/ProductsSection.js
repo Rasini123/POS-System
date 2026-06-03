@@ -605,6 +605,7 @@ import {
 import { addToCartWithSync } from "../../actions/POS/cartActions";
 import ProductCard from "../common/ProductCard";
 import BatchSelectionModal from "../modals/BatchSelectionModal";
+import { productService } from "../../services/POS/ProductService";
 
 const ProductsSection = () => {
   const dispatch = useDispatch();
@@ -743,8 +744,42 @@ const ProductsSection = () => {
 
 
 
+  const processLocalProductToCart = (product) => {
+    if (product.hasMultipleBatches && product.allBatches && product.allBatches.length > 1) {
+      setSelectedProductBatches(product.allBatches);
+      setSelectedProduct(product);
+      setShowBatchModal(true);
+    } else {
+      const productToAdd = {
+        ...product,
+        batchId: product.batchId || product.allBatches?.[0]?.batchId || '0'
+      };
+
+      if (productToAdd.stock > 0) {
+        dispatch(addToCartWithSync(productToAdd));
+      } else {
+        alert("Product is out of stock");
+      }
+    }
+  };
+
   const handleSearch = (e) => {
     if (e.key === "Enter" || e.type === "click") {
+      if (searchQuery.trim()) {
+        const localProduct = allProducts.find(
+          (p) => p.name.toLowerCase() === searchQuery.trim().toLowerCase()
+        );
+        
+        if (localProduct) {
+          processLocalProductToCart(localProduct);
+          dispatch(searchProducts("")); 
+          setTimeout(() => {
+            barcodeInputRef.current?.focus();
+          }, 100);
+          return;
+        }
+      }
+      
       if (selectedCategory || currentSubcategory) {
         setSelectedCategory(null);
         dispatch(setCurrentCategory("all"));
@@ -761,27 +796,12 @@ const ProductsSection = () => {
   const handleBarcodeScan = (e) => {
     if (e.key === "Enter" && barcodeInput.trim()) {
 
-      const product = allProducts.find(
+      const localProduct = allProducts.find(
         (p) => p.barcode === barcodeInput.trim()
       );
 
-      if (product) {
-        if (product.hasMultipleBatches && product.allBatches && product.allBatches.length > 1) {
-          setSelectedProductBatches(product.allBatches);
-          setSelectedProduct(product);
-          setShowBatchModal(true);
-        } else {
-          const productToAdd = {
-            ...product,
-            batchId: product.batchId || product.allBatches?.[0]?.batchId || '0'
-          };
-
-          if (productToAdd.stock > 0) {
-            dispatch(addToCartWithSync(productToAdd));
-          } else {
-            alert("Product is out of stock");
-          }
-        }
+      if (localProduct) {
+        processLocalProductToCart(localProduct);
       } else {
         alert("Product not found");
       }
