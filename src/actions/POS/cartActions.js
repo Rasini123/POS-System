@@ -832,7 +832,6 @@ export const holdSale = () => async (dispatch, getState) => {
     let saleId = activeTab.saleId || cartService.getSaleId();
      
     if (!saleId) {
-
       await dispatch(syncCartWithServer());
        
       const updatedState = getState();
@@ -845,14 +844,24 @@ export const holdSale = () => async (dispatch, getState) => {
     }
 
     const sessionId = cartService.getSessionId(products.allProducts);
-    
 
-     
-    await cartService.holdSale(sessionId, saleId);
+    // Send items to Hold API (cartService forwards to holdService)
+    const holdResult = await cartService.holdSale(sessionId, saleId, items);
      
     const heldSaleId = saleId;
-     
-    cartService.addToHeldSales(heldSaleId, items, activeTab.name);
+    
+    // Also persist to localStorage for offline/hybrid support
+    const heldSale = cartService.addToHeldSales(heldSaleId, items, activeTab.name);
+    
+    // Store the API session ID on the held sale for later resume
+    if (holdResult.sessionId) {
+      const heldSales = cartService.getHeldSales();
+      const idx = heldSales.findIndex(s => s.saleId === heldSaleId);
+      if (idx !== -1) {
+        heldSales[idx].holdSessionId = holdResult.sessionId;
+        localStorage.setItem('heldSales', JSON.stringify(heldSales));
+      }
+    }
      
     cartService.clearSaleId();
     dispatch(clearSaleId());
@@ -890,7 +899,18 @@ export const resumeSale = (saleId) => async (dispatch, getState) => {
       throw new Error('No held items found for this sale');
     }
 
-    await cartService.resumeSale(sessionId, saleId);
+    // Release the hold on the API side if we have a hold session ID
+    if (heldSale.holdSessionId) {
+      try {
+        const { holdService } = await import('../../services/POS/holdService');
+        await holdService.releaseHold(heldSale.holdSessionId);
+      } catch (releaseErr) {
+        console.warn("Failed to release hold via API (continuing with local resume):", releaseErr);
+      }
+    } else {
+      // Try the legacy resume path
+      await cartService.resumeSale(sessionId, saleId);
+    }
     
     dispatch(clearCart());
     

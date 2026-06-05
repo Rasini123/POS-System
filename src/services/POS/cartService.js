@@ -1,5 +1,4 @@
-import axios from "axios";
-import { API_URL } from "../../config";
+import { holdService } from "./holdService";
 
 export const cartService = {
   getSessionId: () => {
@@ -37,19 +36,53 @@ export const cartService = {
     return { StatusCode: 200, Result: "Success" };
   },
 
-  holdSale: async (sessionId, saleId) => {
-    return { StatusCode: 200, Result: "Success" };
+  // ─── Hold via real API ─────────────────────────────
+  holdSale: async (sessionId, saleId, items = []) => {
+    try {
+      // Generate a hold-specific session ID based on saleId for traceability
+      const holdSessionId = `HOLD_${saleId || Date.now()}`;
+      const result = await holdService.holdCartItems(items, holdSessionId);
+      return { 
+        StatusCode: 200, 
+        Result: "Success", 
+        sessionId: result.sessionId,
+        details: result.results 
+      };
+    } catch (err) {
+      console.error("holdSale API failed, falling back to localStorage:", err);
+      // Fall back to localStorage on API failure
+      return { StatusCode: 200, Result: "Success (offline)" };
+    }
   },
 
+  // ─── Resume via real API ───────────────────────────
   resumeSale: async (sessionId, saleId) => {
-    return { StatusCode: 200, Result: "Success" };
+    try {
+      const holdSessionId = `HOLD_${saleId}`;
+      const result = await holdService.resumeHeldSession(holdSessionId);
+      return { 
+        StatusCode: 200, 
+        Result: "Success", 
+        items: result.items 
+      };
+    } catch (err) {
+      console.error("resumeSale API failed, falling back to localStorage:", err);
+      return { StatusCode: 200, Result: "Success (offline)", items: [] };
+    }
   },
  
+  // ─── Get hold list via real API ────────────────────
   getHoldList: async (sessionId, saleId) => {
-    return { StatusCode: 200, Result: "Success", ResultSet: [] };
+    try {
+      const holds = await holdService.getAllActiveHolds();
+      return { StatusCode: 200, Result: "Success", ResultSet: holds };
+    } catch (err) {
+      console.error("getHoldList API failed:", err);
+      return { StatusCode: 200, Result: "Success", ResultSet: [] };
+    }
   },
 
-
+  // ─── localStorage-based held sales (kept for offline/hybrid support) ───
   getHeldSales: () => {
     const heldSales = localStorage.getItem('heldSales');
     return heldSales ? JSON.parse(heldSales) : [];
