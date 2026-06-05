@@ -1,5 +1,6 @@
 import * as actionTypes from '../../constants/POS/productConstants';
 import { productService } from '../../services/POS/ProductService';
+import { API_URL } from '../../config';
 import { 
   dbGetProducts, 
   dbGetCategories, 
@@ -41,22 +42,18 @@ const normalizeSubcategory = (subcategory) => ({
 });
 
 const getProductImageUrl = (product) => {
+  const id = pickFirst(product.ProductId, product.ppd_product_id, product.productId, product.product_id);
   const rawImg = pickFirst(product.ppd_product_image, product.ProductImage, product.productImage, product.product_image);
-  if (!rawImg) return '';
-
-  if (rawImg.startsWith('blob:') || rawImg.startsWith('data:')) return rawImg;
-
-  if (rawImg.startsWith('http')) {
-    if (rawImg.includes('ProductPhotoPreview?ProductId=')) {
-      const id = pickFirst(product.ProductId, product.ppd_product_id, product.productId, product.product_id);
-      return `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${id}.jpeg`;
-    }
-    return rawImg;
+  
+  if (rawImg && (rawImg.startsWith('blob:') || rawImg.startsWith('data:'))) return rawImg;
+  if (rawImg && rawImg.includes('svg+xml')) return rawImg;
+  
+  if (id) {
+    return `${API_URL}/Products/GetProductImage?ProductId=${id}`;
   }
-
-  if (rawImg.includes('svg+xml')) return rawImg;
-
-  return `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${rawImg}`;
+  
+  if (rawImg && rawImg.startsWith('http')) return rawImg;
+  return '';
 };
 
 const normalizeProduct = (product) => {

@@ -2,6 +2,7 @@ import axios from "axios";
 import { API_URL } from "../../config";
 
 export const productService = {
+  // 1. GET: get all products
   getAllProducts: async () => {
     const response = await axios.get(`${API_URL}/Products/GetAllProducts`);
     return response.data.ResultSet || [];
@@ -81,51 +82,7 @@ export const productService = {
       : response.data.ResultSet || response.data.Result || response.data;
   },
 
-  addProduct: async (productData) => {
-    const formData = new FormData();
-    formData.append("ProductCode", productData.ppd_product_code || productData.ProductCode || "");
-    formData.append("BarCode", productData.ppd_barcode || productData.BarCode || "");
-    formData.append("ProductName", productData.ppd_product_name || productData.ProductName || "");
-    formData.append("CategoryId", String(productData.ppd_category_id || productData.CategoryId || ""));
-    formData.append("SubCategoryId", String(productData.ppd_subcategory_id || productData.SubCategoryId || ""));
-    formData.append("Price", String(productData.ppd_price || productData.Price || "0"));
-    formData.append("IsActive", "A");
-    
-    // Use the File object if available, otherwise use the image string (for backward compatibility)
-    if (productData._imageFile && productData._imageFile instanceof File) {
-      formData.append("ProductImage", productData._imageFile);
-    } else if (productData.ppd_product_image && !productData.ppd_product_image.startsWith('blob:')) {
-      // Only append if it's not a blob URL and not empty
-      formData.append("ProductImage", productData.ppd_product_image);
-    }
-    
-    const response = await axios.post(`${API_URL}/Products/AddProductsDetails`, formData);
-    return response.data;
-  },
-
-  updateProduct: async (productData) => {
-    const formData = new FormData();
-    formData.append("ProductId", String(productData.ppd_product_id || productData.ProductId || ""));
-    formData.append("ProductCode", productData.ppd_product_code || productData.ProductCode || "");
-    formData.append("BarCode", productData.ppd_barcode || productData.BarCode || "");
-    formData.append("ProductName", productData.ppd_product_name || productData.ProductName || "");
-    formData.append("CategoryId", String(productData.ppd_category_id || productData.CategoryId || ""));
-    formData.append("SubCategoryId", String(productData.ppd_subcategory_id || productData.SubCategoryId || ""));
-    formData.append("Price", String(productData.ppd_price || productData.Price || "0"));
-    formData.append("IsActive", String(productData.ppd_is_active || productData.IsActive || "A"));
-    
-    // Use the File object if available, otherwise use the image string (for backward compatibility)
-    if (productData._imageFile && productData._imageFile instanceof File) {
-      formData.append("ProductImage", productData._imageFile);
-    } else if (productData.ppd_product_image && !productData.ppd_product_image.startsWith('blob:')) {
-      // Only append if it's not a blob URL and not empty
-      formData.append("ProductImage", productData.ppd_product_image);
-    }
-    
-    const response = await axios.post(`${API_URL}/Products/PutProductsDetails`, formData);
-    return response.data;
-  },
-
+  // 2. GET: get by product ID
   getProductById: async (productId) => {
     const response = await axios.get(`${API_URL}/Products/GetProductsByProductId`, {
       params: { ProductId: String(productId) }
@@ -135,15 +92,126 @@ export const productService = {
       : response.data.ResultSet || response.data.Result || response.data;
   },
 
-  getProductPhotoPreviewUrl: (imageName) => {
-    if (!imageName) return "";
-    return `${API_URL}/Products/ProductPhotoPreview?imageName=${encodeURIComponent(imageName)}`;
+  // 3. POST: add product (query params mapping with optional automatic image upload integration)
+  addProduct: async (productData) => {
+    try {
+      const response = await axios.post(`${API_URL}/Products/AddProductsDetails`, null, {
+        params: {
+          ProductCode: String(productData.ppd_product_code || productData.ProductCode || ""),
+          ProductName: String(productData.ppd_product_name || productData.ProductName || ""),
+          CategoryId: String(productData.ppd_category_id || productData.CategoryId || ""),
+          SubCategoryId: String(productData.ppd_subcategory_id || productData.SubCategoryId || ""),
+          UnitType: String(productData.UnitType || productData.ppd_unit_type || "PCS"),
+          Price: String(productData.ppd_price || productData.Price || "0"),
+          CreatedBy: String(productData.CreatedBy || productData.ppd_created_by || "1")
+        }
+      });
+
+      // Extract new product ID to upload the image file automatically
+      const resSet = response.data?.ResultSet;
+      const productId = (Array.isArray(resSet) ? resSet[0]?.ProductId : resSet?.ProductId) || response.data?.ProductId || response.data?.Result;
+
+      if (productId && productData._imageFile && productData._imageFile instanceof File) {
+        try {
+          await productService.uploadProductImage(productId, productData._imageFile);
+        } catch (imgErr) {
+          console.error("Failed to upload product image after creating product:", imgErr);
+        }
+      }
+
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
   },
 
-  getProductImage: async (imageUrl) => {
-    if (!imageUrl) return null;
+  // 4. POST: update product details (query params mapping with optional image upload integration)
+  updateProduct: async (productData) => {
     try {
-      const response = await axios.get(imageUrl, {
+      const productId = productData.ppd_product_id || productData.ProductId;
+      const response = await axios.post(`${API_URL}/Products/PutProductsDetails`, null, {
+        params: {
+          ProductId: String(productId || ""),
+          ProductName: String(productData.ppd_product_name || productData.ProductName || ""),
+          Price: String(productData.ppd_price || productData.Price || "0"),
+          CategoryId: String(productData.ppd_category_id || productData.CategoryId || ""),
+          SubCategoryId: String(productData.ppd_subcategory_id || productData.SubCategoryId || ""),
+          UnitType: String(productData.UnitType || productData.ppd_unit_type || "PCS"),
+          IsActive: String(productData.ppd_is_active || productData.IsActive || "A"),
+          UpdatedBy: String(productData.UpdatedBy || productData.ppd_updated_by || "1")
+        }
+      });
+
+      if (productId && productData._imageFile && productData._imageFile instanceof File) {
+        try {
+          await productService.uploadProductImage(productId, productData._imageFile);
+        } catch (imgErr) {
+          console.error("Failed to upload product image after updating product:", imgErr);
+        }
+      }
+
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // 5. POST: soft delete product
+  deleteProduct: async (productId) => {
+    try {
+      const response = await axios.post(`${API_URL}/Products/DeleteProduct`, null, {
+        params: { ProductId: String(productId) }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // 6. POST: reactive product
+  restoreProduct: async (productId) => {
+    try {
+      const response = await axios.post(`${API_URL}/Products/RestoreProduct`, null, {
+        params: { ProductId: String(productId) }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // 7. POST: upload and replace existing product image
+  uploadProductImage: async (productId, imageFile) => {
+    try {
+      const formData = new FormData();
+      formData.append("ImageFile", imageFile);
+      const response = await axios.post(`${API_URL}/Products/UploadProductImage`, formData, {
+        params: { ProductId: String(productId) },
+        headers: {
+          "Content-Type": "multipart/form-data"
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // 9. GET: get image (review) URL preview generator
+  getProductPhotoPreviewUrl: (productId) => {
+    if (!productId) return "";
+    return `${API_URL}/Products/GetProductImage?ProductId=${productId}`;
+  },
+
+  // GET: fetch image blob and create object URL
+  getProductImage: async (idOrUrl) => {
+    if (!idOrUrl) return null;
+    try {
+      let url = idOrUrl;
+      if (typeof idOrUrl === 'number' || !isNaN(idOrUrl)) {
+        url = `${API_URL}/Products/GetProductImage?ProductId=${idOrUrl}`;
+      }
+      const response = await axios.get(url, {
         responseType: "blob",
       });
       return URL.createObjectURL(response.data);
@@ -151,5 +219,16 @@ export const productService = {
       return null;
     }
   },
-};
 
+  // 10. POST: DELETE product image (permanent)
+  deleteProductImage: async (productId) => {
+    try {
+      const response = await axios.post(`${API_URL}/Products/DeleteProductImage`, null, {
+        params: { ProductId: String(productId) }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};

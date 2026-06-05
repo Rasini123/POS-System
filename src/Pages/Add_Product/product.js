@@ -4,7 +4,7 @@ import {
   FiPlus, FiSearch, FiEdit3, FiEye, FiTrash2, FiTag, FiFolder, 
   FiFolderPlus, FiImage, FiGrid, FiDollarSign, FiHash, FiCheckCircle, FiX 
 } from 'react-icons/fi';
-// removed mockDb imports
+import { API_URL } from '../../config';
 import { productService } from '../../services/POS/ProductService';
 
 const ProductManagement = () => {
@@ -78,34 +78,15 @@ const ProductManagement = () => {
           const rawImg = p.ProductImage || p.ppd_product_image || '';
           const productId = p.ProductId || p.ppd_product_id;
           
-          // If it's already a full URL, try to normalize it
-          if (rawImg && rawImg.startsWith('http')) {
-            // Convert ProductId parameter to imageName parameter if needed
-            if (rawImg.includes('ProductId=')) {
-              return rawImg.replace('ProductId=', 'imageName=').concat('.jpeg');
-            }
-            return rawImg;
-          }
-          
-          // If it's a blob or data URL, use it (preview images)
           if (rawImg && (rawImg.startsWith('blob:') || rawImg.startsWith('data:'))) {
             return rawImg;
           }
-          
-          // If it's a local DB product with SVG pattern, use it
           if (rawImg && rawImg.includes('svg+xml')) {
             return rawImg;
           }
-          
-          // IMPORTANT: Only try API image URL if product came from API with image data
-          // Don't construct URLs for products that never had images
-          // (This prevents 404 errors for newly added products without saved images)
-          if (rawImg) {
-            // If there's any image field but it's not a URL, it might be a filename
-            return `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${rawImg}`;
+          if (productId) {
+            return `${API_URL}/Products/GetProductImage?ProductId=${productId}`;
           }
-          
-          // Return empty string for products with no image data
           return '';
         })(),
         ppd_is_active: p.IsActive || p.ppd_is_active || 'A',
@@ -352,16 +333,22 @@ const ProductManagement = () => {
     try {
       const prod = products.find(p => p.ppd_product_id === id);
       if (!prod) return;
-      const newStatus = prod.ppd_is_active === 'A' ? 'I' : 'A';
-      const updatedProduct = {
-        ...prod,
-        ppd_is_active: newStatus
-      };
-      const response = await productService.updateProduct(updatedProduct);
-      if (response.StatusCode === 200) {
-        triggerAlert('Product status updated successfully!');
+      
+      let response;
+      if (prod.ppd_is_active === 'A') {
+        response = await productService.deleteProduct(id);
+        if (response.StatusCode === 200) {
+          triggerAlert('Product deactivated successfully!');
+        } else {
+          triggerAlert(response.Result || 'Product deactivated!');
+        }
       } else {
-        triggerAlert(response.Result || 'Product status updated!');
+        response = await productService.restoreProduct(id);
+        if (response.StatusCode === 200) {
+          triggerAlert('Product reactivated successfully!');
+        } else {
+          triggerAlert(response.Result || 'Product reactivated!');
+        }
       }
       await refreshAllData();
     } catch (err) {
@@ -871,41 +858,67 @@ const ProductManagement = () => {
                   <div className="sm:col-span-1 flex flex-col items-center justify-center">
                     <div className="w-28 h-28 rounded-2xl overflow-hidden border border-dashed border-gray-300 dark:border-gray-650 bg-gray-50 dark:bg-gray-850 flex items-center justify-center relative group">
                       {currentProduct.ppd_product_image ? (
-                        <img
-                          src={currentProduct.ppd_product_image}
-                          alt="Preview"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const src = e.target.src;
-                            if (!src || !src.includes('imageName=')) return;
-                            
-                            const retryCount = parseInt(e.target.dataset.retryCount || '0', 10);
-                            const extensions = ['.jpeg', '.jpg', '.png', '.webp', '.gif'];
-                            
-                            // Only retry a maximum of 3 times
-                            if (retryCount >= extensions.length) {
-                              e.target.style.display = 'none';
-                              return;
-                            }
-                            
-                            try {
-                              const url = new URL(src);
-                              const imageName = url.searchParams.get('imageName');
+                        <>
+                          <img
+                            src={currentProduct.ppd_product_image}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const src = e.target.src;
+                              if (!src || !src.includes('imageName=')) return;
                               
-                              if (imageName) {
-                                // Remove any existing extension from imageName
-                                const baseImageName = imageName.replace(/\.\w+$/, '');
-                                const newExt = extensions[retryCount];
-                                e.target.src = `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${baseImageName}${newExt}`;
-                                e.target.dataset.retryCount = (retryCount + 1).toString();
-                              } else {
+                              const retryCount = parseInt(e.target.dataset.retryCount || '0', 10);
+                              const extensions = ['.jpeg', '.jpg', '.png', '.webp', '.gif'];
+                              
+                              // Only retry a maximum of 3 times
+                              if (retryCount >= extensions.length) {
+                                e.target.style.display = 'none';
+                                return;
+                              }
+                              
+                              try {
+                                const url = new URL(src);
+                                const imageName = url.searchParams.get('imageName');
+                                
+                                if (imageName) {
+                                  // Remove any existing extension from imageName
+                                  const baseImageName = imageName.replace(/\.\w+$/, '');
+                                  const newExt = extensions[retryCount];
+                                  e.target.src = `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${baseImageName}${newExt}`;
+                                  e.target.dataset.retryCount = (retryCount + 1).toString();
+                                } else {
+                                  e.target.style.display = 'none';
+                                }
+                              } catch (err) {
                                 e.target.style.display = 'none';
                               }
-                            } catch (err) {
-                              e.target.style.display = 'none';
-                            }
-                          }}
-                        />
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (currentProduct.ppd_product_id) {
+                                try {
+                                  await productService.deleteProductImage(currentProduct.ppd_product_id);
+                                  triggerAlert("Product image permanently deleted.");
+                                } catch (err) {
+                                  console.error(err);
+                                  triggerAlert("Failed to delete image on API", "error");
+                                }
+                              }
+                              setCurrentProduct(prev => ({
+                                ...prev,
+                                ppd_product_image: "",
+                                _imageFile: null
+                              }));
+                            }}
+                            className="absolute top-1 right-1 p-1 bg-red-600 hover:bg-red-750 text-white rounded-full transition-colors opacity-0 group-hover:opacity-100 shadow-lg z-20"
+                            title="Delete Image"
+                          >
+                            <FiX className="w-3.5 h-3.5" />
+                          </button>
+                        </>
                       ) : (
                         <div className="text-center p-2">
                           <FiImage className="w-8 h-8 text-gray-400 mx-auto mb-1" />
