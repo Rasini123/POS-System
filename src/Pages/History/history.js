@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { 
   FiSearch, FiCalendar, FiClock, FiFileText, FiPrinter, 
-  FiDollarSign, FiUser, FiCreditCard, FiX, FiCheckCircle, FiEye 
+  FiDollarSign, FiUser, FiCreditCard, FiX, FiCheckCircle, FiEye,
+  FiCornerUpLeft
 } from 'react-icons/fi';
 import { invoiceService } from '../../services/POS/invoiceService';
 import { billService } from '../../services/POS/billService';
+import { setActivePage } from '../../actions/uiActions';
 
 const TransactionsHistory = () => {
+  const dispatch = useDispatch();
   const { darkMode } = useSelector((state) => state.ui);
   const products = useSelector(state => state.product?.allProducts || []);
   
@@ -277,6 +280,11 @@ const TransactionsHistory = () => {
     triggerAlert('Sending receipt to printer...');
   };
 
+  const handleGoToReturn = (billId) => {
+    sessionStorage.setItem('return_bill_id', String(billId));
+    dispatch(setActivePage('RETURNS'));
+  };
+
   // Filter Logic
   const filteredBills = bills.filter(b => {
     const matchSearch = String(b.pbd_bill_id).toLowerCase().includes(searchTerm.toLowerCase());
@@ -480,6 +488,16 @@ const TransactionsHistory = () => {
                       >
                         <FiPrinter className="w-4 h-4" />
                       </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleGoToReturn(b.pbd_bill_id);
+                        }}
+                        className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 transition-colors"
+                        title="Return Items"
+                      >
+                        <FiCornerUpLeft className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -558,12 +576,20 @@ const TransactionsHistory = () => {
                 <span className="text-blue-600 dark:text-blue-400">LKR {selectedBill.pbd_net_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
               </div>
 
-              <button
-                onClick={() => handlePrint(selectedBill.pbd_bill_id)}
-                className="w-full mt-4 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold transition-all active:scale-95 shadow"
-              >
-                <FiPrinter /> Print Receipt
-              </button>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => handlePrint(selectedBill.pbd_bill_id)}
+                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold transition-all active:scale-95 shadow"
+                >
+                  <FiPrinter /> Print
+                </button>
+                <button
+                  onClick={() => handleGoToReturn(selectedBill.pbd_bill_id)}
+                  className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-xl font-bold transition-all active:scale-95 shadow"
+                >
+                  <FiCornerUpLeft /> Return
+                </button>
+              </div>
             </div>
 
           </div>

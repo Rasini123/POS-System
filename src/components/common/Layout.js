@@ -9,6 +9,7 @@ import History from "../../Pages/History/history";
 import Settings from "../../Pages/Settings/Settings";
 import AddProduct from "../../Pages/Add_Product/product";
 import ReportsPage from "../../Pages/Report/ReportsPage";
+import ReturnsPage from "../../Pages/Returns/returns";
 
 const Layout = () => {
   const { user } = useSelector((state) => state.auth);
@@ -60,6 +61,7 @@ const Layout = () => {
               )}
               {activePage === "USER_ACCESS" && <UserAccessPage />}
               {activePage === "HISTORY" && <History />}
+              {activePage === "RETURNS" && <ReturnsPage />}
               {activePage === "SETTINGS" && <Settings />}
               {activePage === "ADD_PRODUCT" && <AddProduct />}
               {activePage === "REPORTS" && <ReportsPage />}

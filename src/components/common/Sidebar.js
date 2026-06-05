@@ -138,6 +138,7 @@ const Sidebar = ({ setActivePage }) => {
     { id: 'POS', icon: 'fas fa-cash-register', label: 'POS Billing', color: 'bg-indigo-600 hover:bg-indigo-700' },
     { id: 'ADD_PRODUCT', icon: 'fas fa-tshirt', label: 'Products & Cat.', color: 'bg-teal-600 hover:bg-teal-700' },
     { id: 'HISTORY', icon: 'fas fa-history', label: 'Transactions', color: 'bg-blue-600 hover:bg-blue-700' },
+    { id: 'RETURNS', icon: 'fas fa-undo', label: 'Returns', color: 'bg-rose-600 hover:bg-rose-700' },
     { id: 'REPORTS', icon: 'fas fa-chart-pie', label: 'Reports', color: 'bg-purple-600 hover:bg-purple-700' },
     { id: 'USER_ACCESS', icon: 'fas fa-user-shield', label: 'User Access', color: 'bg-gray-800 hover:bg-gray-900' }
   ];
@@ -146,7 +147,7 @@ const Sidebar = ({ setActivePage }) => {
       return allSidebarButtons;
     } else if (userType === 'C') { 
       return allSidebarButtons.filter(button => 
-        ['POS', 'HISTORY', 'REPORTS'].includes(button.id)
+        ['POS', 'HISTORY', 'RETURNS', 'REPORTS'].includes(button.id)
       );
     } else { 
       return allSidebarButtons;
