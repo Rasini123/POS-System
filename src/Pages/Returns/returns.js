@@ -25,6 +25,7 @@ const ReturnsPage = () => {
     RecentReturns: []
   });
   const [allProducts, setAllProducts] = useState([]);
+  const [allBillItems, setAllBillItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Search & Process States
@@ -35,6 +36,7 @@ const ReturnsPage = () => {
   const [returnQtysInput, setReturnQtysInput] = useState({}); // maps BillItemId -> input value
   const [searchLoading, setSearchLoading] = useState(false);
   const [processingReturnId, setProcessingReturnId] = useState(null);
+  const [processingFullBill, setProcessingFullBill] = useState(false);
 
   // Alerts
   const [alert, setAlert] = useState({ show: false, message: '', type: 'success' });
@@ -43,22 +45,36 @@ const ReturnsPage = () => {
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      const [fetchedReturns, fetchedSummary, fetchedProducts] = await Promise.all([
+      const [fetchedReturns, fetchedSummary, fetchedProducts, fetchedBillItems] = await Promise.all([
         returnService.getAllReturns(),
         returnService.getReturnSummary(),
-        productService.getAllProducts().catch(() => [])
+        productService.getAllProducts().catch(() => []),
+        billService.getAllBillItems().catch(() => [])
       ]);
       
       setReturnRecords(Array.isArray(fetchedReturns) ? fetchedReturns : []);
       setAllProducts(Array.isArray(fetchedProducts) ? fetchedProducts : []);
+      setAllBillItems(Array.isArray(fetchedBillItems) ? fetchedBillItems : []);
       
       if (fetchedSummary) {
+        const returnsList = Array.isArray(fetchedReturns) ? fetchedReturns : [];
+        const calculatedTotalRefund = returnsList.reduce((sum, r) => sum + getRefundAmount(r, fetchedBillItems), 0);
+        const calculatedProductSummary = Object.values(returnsList.reduce((summary, record) => {
+          const productName = record.ProductName || `Product ${record.ProductId}`;
+          if (!summary[productName]) {
+            summary[productName] = { productName, returnedQty: 0, refundAmount: 0 };
+          }
+          summary[productName].returnedQty += Number(record.ReturnedQty || 0);
+          summary[productName].refundAmount += getRefundAmount(record, fetchedBillItems);
+          return summary;
+        }, {})).sort((a, b) => b.refundAmount - a.refundAmount);
+
         setSummaryData({
-          TotalReturnsCount: fetchedSummary.TotalReturnsCount || fetchedReturns.length || 0,
-          TotalReturnedQty: fetchedSummary.TotalReturnedQty || fetchedReturns.reduce((sum, r) => sum + (r.ReturnedQty || 0), 0),
-          TotalRefundAmount: fetchedSummary.TotalRefundAmount || fetchedReturns.reduce((sum, r) => sum + (r.TotalRefund || 0), 0),
-          TopReturnedProducts: fetchedSummary.TopReturnedProducts || [],
-          RecentReturns: fetchedSummary.RecentReturns || fetchedReturns.slice(0, 5)
+          TotalReturnsCount: fetchedSummary.TotalReturnsCount || returnsList.length || 0,
+          TotalReturnedQty: fetchedSummary.TotalReturnedQty || returnsList.reduce((sum, r) => sum + Number(r.ReturnedQty || 0), 0),
+          TotalRefundAmount: calculatedTotalRefund || fetchedSummary.TotalRefundAmount || 0,
+          TopReturnedProducts: calculatedProductSummary.length > 0 ? calculatedProductSummary : (fetchedSummary.TopReturnedProducts || []),
+          RecentReturns: returnsList.length > 0 ? returnsList.slice(0, 5) : (fetchedSummary.RecentReturns || [])
         });
       }
     } catch (error) {
@@ -107,7 +123,7 @@ const ReturnsPage = () => {
     
     try {
       // 1. Fetch bill details
-      const bill = await billService.getBillById(billSearchId.trim());
+      const bill = await billService.getBillById(searchId.trim());
       if (!bill || (!bill.BillId && !bill.pbd_bill_id)) {
         triggerAlert('Bill not found. Please verify the ID.', 'error');
         setSearchLoading(false);
@@ -229,9 +245,60 @@ const ReturnsPage = () => {
     }
   };
 
+  const handleReturnFullBill = async () => {
+    const returnableItems = searchedBillItems.filter(item => {
+      const returned = alreadyReturnedQtys[item.id] || 0;
+      return item.qty - returned > 0;
+    });
+
+    if (returnableItems.length === 0) {
+      triggerAlert('All items in this bill are already fully returned.', 'error');
+      return;
+    }
+
+    setProcessingFullBill(true);
+    try {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = userData?.UserId || userData?.LogId || 1;
+
+      for (const item of returnableItems) {
+        const alreadyReturned = alreadyReturnedQtys[item.id] || 0;
+        const available = item.qty - alreadyReturned;
+        await returnService.markReturn(item.id, available, userId);
+      }
+
+      const updatedReturnedQtys = { ...alreadyReturnedQtys };
+      returnableItems.forEach(item => {
+        updatedReturnedQtys[item.id] = item.qty;
+      });
+
+      setAlreadyReturnedQtys(updatedReturnedQtys);
+      setReturnQtysInput({});
+      triggerAlert(`Returned all remaining items for ${searchedBill.BillNo || searchedBill.pbd_bill_no}.`, 'success');
+      await loadInitialData();
+    } catch (error) {
+      triggerAlert(error.message || 'Failed to process full bill return.', 'error');
+    } finally {
+      setProcessingFullBill(false);
+    }
+  };
+
   // Helper formatting LKR currency
   const fmtLKR = (num) => {
     return 'LKR ' + Number(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const getBillItemUnitPrice = (billItemId, billItems = allBillItems) => {
+    const item = billItems.find(bi => String(bi.BillItemId || bi.pid_billitem_id || bi.id) === String(billItemId));
+    return Number(item?.UnitPrice || item?.pid_unit_price || 0);
+  };
+
+  const getRefundAmount = (record, billItems = allBillItems) => {
+    const qty = Number(record.ReturnedQty || record.returnedQty || 0);
+    const unitPrice = Number(record.UnitPrice || record.unitPrice || 0) || getBillItemUnitPrice(record.BillItemId, billItems);
+    const apiRefund = Number(record.TotalRefund || record.RefundAmount || record.pbd_return_amount || 0);
+
+    return qty > 0 && unitPrice > 0 ? qty * unitPrice : apiRefund;
   };
 
   return (
@@ -387,8 +454,22 @@ const ReturnsPage = () => {
                 {/* Returnable items table */}
                 <div className="lg:col-span-2 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                   <div className="p-4 bg-gray-55 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                    <h3 className="font-bold text-sm flex items-center gap-1.5"><FiActivity /> Eligible Items for Return</h3>
-                    <span className="text-xs opacity-60">Manage item return count</span>
+                    <div>
+                      <h3 className="font-bold text-sm flex items-center gap-1.5"><FiActivity /> Eligible Items for Return</h3>
+                      <span className="text-xs opacity-60">Manage item return count</span>
+                    </div>
+                    <button
+                      onClick={handleReturnFullBill}
+                      disabled={processingFullBill || searchedBillItems.every(item => item.qty - (alreadyReturnedQtys[item.id] || 0) <= 0)}
+                      className="px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                    >
+                      {processingFullBill ? (
+                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                      ) : (
+                        <FiCornerUpLeft className="w-3.5 h-3.5" />
+                      )}
+                      Return Full Bill
+                    </button>
                   </div>
 
                   <table className="w-full text-left border-collapse">
@@ -492,7 +573,6 @@ const ReturnsPage = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className={`text-xs font-bold uppercase opacity-75 ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                    <th className="px-5 py-4">Return ID</th>
                     <th className="px-5 py-4">Bill No</th>
                     <th className="px-5 py-4">Product</th>
                     <th className="px-5 py-4 text-center">Returned Qty</th>
@@ -504,7 +584,7 @@ const ReturnsPage = () => {
                 <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
                   {loading ? (
                     <tr>
-                      <td colSpan="7" className="p-8 text-center text-gray-500">
+                      <td colSpan="6" className="p-8 text-center text-gray-500">
                         <div className="flex flex-col items-center justify-center space-y-3">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500"></div>
                           <p>Loading return logs...</p>
@@ -513,16 +593,13 @@ const ReturnsPage = () => {
                     </tr>
                   ) : returnRecords.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="p-12 text-center text-gray-500">
+                      <td colSpan="6" className="p-12 text-center text-gray-500">
                         <FiInfo className="w-10 h-10 mx-auto mb-2 opacity-40 text-gray-400" />
                         No return records found in the database.
                       </td>
                     </tr>
                   ) : returnRecords.map((rec) => (
-                    <tr key={rec.ReturnId || rec.id} className={`${darkMode ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50'}`}>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-sm font-bold opacity-75">
-                        {rec.ReturnId || rec.id}
-                      </td>
+                    <tr key={`${rec.BillItemId || rec.ProductId}-${rec.ReturnDate || rec.ReturnedQty}`} className={`${darkMode ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50'}`}>
                       <td className="px-5 py-3.5 whitespace-nowrap text-sm font-bold text-blue-600 dark:text-blue-400">
                         {rec.BillNo || `Bill ${rec.BillId}`}
                       </td>
@@ -534,7 +611,7 @@ const ReturnsPage = () => {
                         {rec.ReturnedQty}
                       </td>
                       <td className="px-5 py-3.5 whitespace-nowrap text-sm font-bold text-right text-rose-600 dark:text-rose-400">
-                        {fmtLKR(rec.TotalRefund || (Number(rec.ReturnedQty) * Number(rec.UnitPrice || 0)))}
+                        {fmtLKR(getRefundAmount(rec))}
                       </td>
                       <td className="px-5 py-3.5 whitespace-nowrap text-xs">
                         <div className="font-semibold">{new Date(rec.ReturnDate).toLocaleDateString()}</div>
@@ -652,7 +729,7 @@ const ReturnsPage = () => {
                             <span>Date: {new Date(r.ReturnDate).toLocaleDateString()}</span>
                           </div>
                         </div>
-                        <span className="font-bold text-sm text-rose-600 dark:text-rose-400">{fmtLKR(r.TotalRefund || (r.ReturnedQty * r.UnitPrice))}</span>
+                        <span className="font-bold text-sm text-rose-600 dark:text-rose-400">{fmtLKR(getRefundAmount(r))}</span>
                       </div>
                     ))}
                   </div>
