@@ -55,8 +55,8 @@ const ReturnsPage = () => {
       if (fetchedSummary) {
         setSummaryData({
           TotalReturnsCount: fetchedSummary.TotalReturnsCount || fetchedReturns.length || 0,
-          TotalReturnedQty: fetchedSummary.TotalReturnedQty || fetchedReturns.reduce((sum, r) => sum + parseInt(r.ReturnedQty || 0), 0),
-          TotalRefundAmount: fetchedSummary.TotalRefundAmount || fetchedReturns.reduce((sum, r) => sum + parseFloat(r.TotalRefund || 0), 0),
+          TotalReturnedQty: fetchedSummary.TotalReturnedQty || fetchedReturns.reduce((sum, r) => sum + (r.ReturnedQty || 0), 0),
+          TotalRefundAmount: fetchedSummary.TotalRefundAmount || fetchedReturns.reduce((sum, r) => sum + (r.TotalRefund || 0), 0),
           TopReturnedProducts: fetchedSummary.TopReturnedProducts || [],
           RecentReturns: fetchedSummary.RecentReturns || fetchedReturns.slice(0, 5)
         });
@@ -492,6 +492,7 @@ const ReturnsPage = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className={`text-xs font-bold uppercase opacity-75 ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                    <th className="px-5 py-4">Return ID</th>
                     <th className="px-5 py-4">Bill No</th>
                     <th className="px-5 py-4">Product</th>
                     <th className="px-5 py-4 text-center">Returned Qty</th>
@@ -503,7 +504,7 @@ const ReturnsPage = () => {
                 <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
                   {loading ? (
                     <tr>
-                      <td colSpan="6" className="p-8 text-center text-gray-500">
+                      <td colSpan="7" className="p-8 text-center text-gray-500">
                         <div className="flex flex-col items-center justify-center space-y-3">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500"></div>
                           <p>Loading return logs...</p>
@@ -512,13 +513,16 @@ const ReturnsPage = () => {
                     </tr>
                   ) : returnRecords.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="p-12 text-center text-gray-500">
+                      <td colSpan="7" className="p-12 text-center text-gray-500">
                         <FiInfo className="w-10 h-10 mx-auto mb-2 opacity-40 text-gray-400" />
                         No return records found in the database.
                       </td>
                     </tr>
                   ) : returnRecords.map((rec) => (
                     <tr key={rec.ReturnId || rec.id} className={`${darkMode ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50'}`}>
+                      <td className="px-5 py-3.5 whitespace-nowrap text-sm font-bold opacity-75">
+                        {rec.ReturnId || rec.id}
+                      </td>
                       <td className="px-5 py-3.5 whitespace-nowrap text-sm font-bold text-blue-600 dark:text-blue-400">
                         {rec.BillNo || `Bill ${rec.BillId}`}
                       </td>

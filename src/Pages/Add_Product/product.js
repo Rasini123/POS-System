@@ -1,27 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import {
-  FiPlus, FiSearch, FiEdit3, FiEye, FiTrash2, FiTag, FiFolder,
-  FiFolderPlus, FiImage, FiGrid, FiDollarSign, FiHash, FiCheckCircle, FiX
+import { 
+  FiPlus, FiSearch, FiEdit3, FiEye, FiTrash2, FiTag, FiFolder, 
+  FiFolderPlus, FiImage, FiGrid, FiDollarSign, FiHash, FiCheckCircle, FiX 
 } from 'react-icons/fi';
 import { API_URL } from '../../config';
 import { productService } from '../../services/POS/ProductService';
 
 const ProductManagement = () => {
   const { darkMode } = useSelector((state) => state.ui);
-
+  
   // Tabs: 'products' | 'categories'
   const [activeTab, setActiveTab] = useState('products');
-
+  
   // Lists State
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-
+  
   // Search & Filter
   const [prodSearch, setProdSearch] = useState('');
   const [selectedCatFilter, setSelectedCatFilter] = useState('all');
-
+  
   // Product Modal State
   const [isProdModalOpen, setIsProdModalOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState({
@@ -34,12 +34,12 @@ const ProductManagement = () => {
     ppd_price: '',
     ppd_product_image: ''
   });
-
+  
   // Category / Subcategory modal & forms
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [categoryName, setCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState(null);
-
+  
   const [isSubcatModalOpen, setIsSubcatModalOpen] = useState(false);
   const [subcategoryName, setSubcategoryName] = useState('');
   const [parentCategoryId, setParentCategoryId] = useState('');
@@ -54,7 +54,7 @@ const ProductManagement = () => {
       let apiProducts = [];
       let apiCategories = [];
       let apiSubcategories = [];
-
+      
       // Try to fetch from API
       try {
         const response = await productService.getAllProducts();
@@ -77,7 +77,7 @@ const ProductManagement = () => {
         ppd_product_image: (() => {
           const rawImg = p.ProductImage || p.ppd_product_image || '';
           const productId = p.ProductId || p.ppd_product_id;
-
+          
           if (rawImg && (rawImg.startsWith('blob:') || rawImg.startsWith('data:'))) {
             return rawImg;
           }
@@ -96,7 +96,7 @@ const ProductManagement = () => {
       console.error('Error loading products:', err);
       setProducts([]);
     }
-
+    
     // Load categories from API, fallback to mockDb
     try {
       const apiCategories = await productService.getAllCategories();
@@ -167,7 +167,7 @@ const ProductManagement = () => {
   const handleSaveProduct = async (e) => {
     e.preventDefault();
     const { ppd_product_code, ppd_barcode, ppd_product_name, ppd_category_id, ppd_price } = currentProduct;
-
+    
     if (!ppd_product_code || !ppd_barcode || !ppd_product_name || !ppd_category_id || !ppd_price) {
       triggerAlert('Please fill in all required fields.', 'error');
       return;
@@ -185,7 +185,7 @@ const ProductManagement = () => {
 
       let success = false;
       let isNew = !currentProduct.ppd_product_id;
-
+      
       try {
         if (currentProduct.ppd_product_id) {
           const response = await productService.updateProduct(payload);
@@ -333,7 +333,7 @@ const ProductManagement = () => {
     try {
       const prod = products.find(p => p.ppd_product_id === id);
       if (!prod) return;
-
+      
       let response;
       if (prod.ppd_is_active === 'A') {
         response = await productService.deleteProduct(id);
@@ -401,9 +401,9 @@ const ProductManagement = () => {
   // Filtering
   const filteredProducts = products.filter(p => {
     const matchSearch = String(p.ppd_product_id) === prodSearch.trim() ||
-      p.ppd_product_name.toLowerCase().includes(prodSearch.toLowerCase()) ||
-      p.ppd_product_code.toLowerCase().includes(prodSearch.toLowerCase()) ||
-      p.ppd_barcode.toLowerCase().includes(prodSearch.toLowerCase());
+                        p.ppd_product_name.toLowerCase().includes(prodSearch.toLowerCase()) ||
+                        p.ppd_product_code.toLowerCase().includes(prodSearch.toLowerCase()) ||
+                        p.ppd_barcode.toLowerCase().includes(prodSearch.toLowerCase());
     const matchCat = selectedCatFilter === 'all' || p.ppd_category_id === parseInt(selectedCatFilter);
     return matchSearch && matchCat;
   });
@@ -422,9 +422,9 @@ const ProductManagement = () => {
       return;
     }
     const query = prodSearch.trim().toLowerCase();
-
+    
     // Find matching product locally
-    const match = products.find(p =>
+    const match = products.find(p => 
       String(p.ppd_product_id) === query ||
       p.ppd_product_name.toLowerCase() === query ||
       p.ppd_product_code.toLowerCase() === query ||
@@ -435,21 +435,21 @@ const ProductManagement = () => {
       try {
         const apiProductRaw = await productService.getProductById(match.ppd_product_id);
         if (apiProductRaw) {
-          const updatedProduct = {
-            ...match,
-            ppd_product_name: apiProductRaw.ProductName || match.ppd_product_name,
-            ppd_price: parseFloat(apiProductRaw.Price || match.ppd_price),
-            ppd_product_code: apiProductRaw.ProductCode || match.ppd_product_code,
-            ppd_barcode: apiProductRaw.BarCode || match.ppd_barcode,
-            ppd_category_id: apiProductRaw.CategoryId ? parseInt(apiProductRaw.CategoryId) : match.ppd_category_id,
-            ppd_subcategory_id: apiProductRaw.SubCategoryId ? parseInt(apiProductRaw.SubCategoryId) : match.ppd_subcategory_id,
-            ppd_product_image: apiProductRaw.ProductImage || match.ppd_product_image,
-            ppd_is_active: apiProductRaw.IsActive || match.ppd_is_active
-          };
-          setProducts(products.map(p => p.ppd_product_id === match.ppd_product_id ? updatedProduct : p));
-          triggerAlert('Product data refreshed from API');
+           const updatedProduct = {
+             ...match,
+             ppd_product_name: apiProductRaw.ProductName || match.ppd_product_name,
+             ppd_price: parseFloat(apiProductRaw.Price || match.ppd_price),
+             ppd_product_code: apiProductRaw.ProductCode || match.ppd_product_code,
+             ppd_barcode: apiProductRaw.BarCode || match.ppd_barcode,
+             ppd_category_id: apiProductRaw.CategoryId ? parseInt(apiProductRaw.CategoryId) : match.ppd_category_id,
+             ppd_subcategory_id: apiProductRaw.SubCategoryId ? parseInt(apiProductRaw.SubCategoryId) : match.ppd_subcategory_id,
+             ppd_product_image: apiProductRaw.ProductImage || match.ppd_product_image,
+             ppd_is_active: apiProductRaw.IsActive || match.ppd_is_active
+           };
+           setProducts(products.map(p => p.ppd_product_id === match.ppd_product_id ? updatedProduct : p));
+           triggerAlert('Product data refreshed from API');
         } else {
-          triggerAlert('Product not found via API', 'error');
+           triggerAlert('Product not found via API', 'error');
         }
       } catch (err) {
         console.error(err);
@@ -461,14 +461,16 @@ const ProductManagement = () => {
   };
 
   return (
-    <div className={`flex flex-col p-6 rounded-2xl shadow-xl h-full overflow-hidden transition-all duration-300 ${darkMode ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'
-      } border`}>
+    <div className={`flex flex-col p-6 rounded-2xl shadow-xl h-full overflow-hidden transition-all duration-300 ${
+      darkMode ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'
+    } border`}>
 
       {/* Alert Header */}
       {alert.show && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in-down w-full max-w-md px-4">
-          <div className={`flex items-center justify-between p-4 rounded-xl shadow-lg border ${alert.type === 'success' ? 'bg-green-100 border-green-300 text-green-800' : 'bg-red-100 border-red-300 text-red-800'
-            }`}>
+          <div className={`flex items-center justify-between p-4 rounded-xl shadow-lg border ${
+            alert.type === 'success' ? 'bg-green-100 border-green-300 text-green-800' : 'bg-red-100 border-red-300 text-red-800'
+          }`}>
             <div className="flex items-center gap-3">
               {alert.type === 'success' ? <FiCheckCircle className="w-5 h-5 text-green-600" /> : <FiX className="w-5 h-5 text-red-600" />}
               <p className="font-semibold text-sm">{alert.message}</p>
@@ -495,15 +497,17 @@ const ProductManagement = () => {
         <div className="flex bg-gray-100 dark:bg-gray-800 p-1.5 rounded-xl self-start sm:self-center">
           <button
             onClick={() => setActiveTab('products')}
-            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-all ${activeTab === 'products' ? 'bg-white dark:bg-gray-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'opacity-70 hover:opacity-100'
-              }`}
+            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-all ${
+              activeTab === 'products' ? 'bg-white dark:bg-gray-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'opacity-70 hover:opacity-100'
+            }`}
           >
             Products Catalog
           </button>
           <button
             onClick={() => setActiveTab('categories')}
-            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-all ${activeTab === 'categories' ? 'bg-white dark:bg-gray-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'opacity-70 hover:opacity-100'
-              }`}
+            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-all ${
+              activeTab === 'categories' ? 'bg-white dark:bg-gray-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'opacity-70 hover:opacity-100'
+            }`}
           >
             Categories & Subcategories
           </button>
@@ -524,8 +528,9 @@ const ProductManagement = () => {
                   value={prodSearch}
                   onChange={(e) => setProdSearch(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleApiSearch(); }}
-                  className={`w-full pl-11 pr-4 py-2.5 rounded-l-xl border border-r-0 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
-                    }`}
+                  className={`w-full pl-11 pr-4 py-2.5 rounded-l-xl border border-r-0 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all ${
+                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                  }`}
                 />
               </div>
               <button
@@ -535,13 +540,14 @@ const ProductManagement = () => {
                 Search
               </button>
             </div>
-
+            
             <div className="flex gap-2">
               <select
                 value={selectedCatFilter}
                 onChange={(e) => setSelectedCatFilter(e.target.value)}
-                className={`px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm font-medium ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-700'
-                  }`}
+                className={`px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm font-medium ${
+                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-700'
+                }`}
               >
                 <option value="all">All Categories</option>
                 {categories.map(c => (
@@ -589,20 +595,20 @@ const ProductManagement = () => {
                             onError={(e) => {
                               const src = e.target.src;
                               if (!src || !src.includes('imageName=')) return;
-
+                              
                               const retryCount = parseInt(e.target.dataset.retryCount || '0', 10);
                               const extensions = ['.jpeg', '.jpg', '.png', '.webp', '.gif'];
-
+                              
                               // Only retry a maximum of 3 times
                               if (retryCount >= extensions.length) {
                                 e.target.style.display = 'none';
                                 return;
                               }
-
+                              
                               try {
                                 const url = new URL(src);
                                 const imageName = url.searchParams.get('imageName');
-
+                                
                                 if (imageName) {
                                   // Remove any existing extension from imageName
                                   const baseImageName = imageName.replace(/\.\w+$/, '');
@@ -639,10 +645,11 @@ const ProductManagement = () => {
                       {prod.ppd_price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-6 py-3 whitespace-nowrap text-center">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${prod.ppd_is_active === 'A'
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                        prod.ppd_is_active === 'A'
                           ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                           : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                        }`}>
+                      }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${prod.ppd_is_active === 'A' ? 'bg-green-500' : 'bg-red-500'}`} />
                         {prod.ppd_is_active === 'A' ? 'Active' : 'Inactive'}
                       </span>
@@ -659,10 +666,11 @@ const ProductManagement = () => {
                         <button
                           onClick={() => toggleProdStatus(prod.ppd_product_id)}
                           title={prod.ppd_is_active === 'A' ? 'Deactivate Product' : 'Activate Product'}
-                          className={`p-2 rounded-lg transition-colors ${prod.ppd_is_active === 'A'
+                          className={`p-2 rounded-lg transition-colors ${
+                            prod.ppd_is_active === 'A'
                               ? 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40'
                               : 'bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/40'
-                            }`}
+                          }`}
                         >
                           {prod.ppd_is_active === 'A' ? <FiTrash2 className="w-4 h-4" /> : <FiCheckCircle className="w-4 h-4" />}
                         </button>
@@ -686,7 +694,7 @@ const ProductManagement = () => {
       {/* RENDER CATEGORIES TAB */}
       {activeTab === 'categories' && (
         <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden">
-
+          
           {/* Categories Manager Column */}
           <div className="flex flex-col overflow-hidden">
             <div className="flex items-center justify-between mb-4">
@@ -704,7 +712,7 @@ const ProductManagement = () => {
                 <FiPlus /> Add Category
               </button>
             </div>
-
+            
             <div className="flex-grow overflow-auto border border-gray-200 dark:border-gray-700 rounded-2xl bg-gray-50/50 dark:bg-gray-800/10">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -721,8 +729,9 @@ const ProductManagement = () => {
                       <td className="px-5 py-3 text-sm font-bold opacity-60">{cat.pcd_category_id}</td>
                       <td className="px-5 py-3 text-sm font-bold">{cat.pcd_category_name}</td>
                       <td className="px-5 py-3 text-sm text-center">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${cat.pcd_is_active === 'A' ? 'bg-green-100 text-green-800 dark:bg-green-900/30' : 'bg-red-100 text-red-800 dark:bg-red-900/30'
-                          }`}>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                          cat.pcd_is_active === 'A' ? 'bg-green-100 text-green-800 dark:bg-green-900/30' : 'bg-red-100 text-red-800 dark:bg-red-900/30'
+                        }`}>
                           {cat.pcd_is_active === 'A' ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -740,8 +749,9 @@ const ProductManagement = () => {
                           </button>
                           <button
                             onClick={() => toggleCatStatus(cat.pcd_category_id)}
-                            className={`text-xs font-bold underline transition-colors ${cat.pcd_is_active === 'A' ? 'text-red-500 hover:text-red-700' : 'text-green-500 hover:text-green-700'
-                              }`}
+                            className={`text-xs font-bold underline transition-colors ${
+                              cat.pcd_is_active === 'A' ? 'text-red-500 hover:text-red-700' : 'text-green-500 hover:text-green-700'
+                            }`}
                           >
                             {cat.pcd_is_active === 'A' ? 'Deactivate' : 'Activate'}
                           </button>
@@ -772,7 +782,7 @@ const ProductManagement = () => {
                 <FiPlus /> Add Subcategory
               </button>
             </div>
-
+            
             <div className="flex-grow overflow-auto border border-gray-200 dark:border-gray-700 rounded-2xl bg-gray-50/50 dark:bg-gray-800/10">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -791,8 +801,9 @@ const ProductManagement = () => {
                       <td className="px-5 py-3 text-sm font-bold">{sub.psd_subcategory_name}</td>
                       <td className="px-5 py-3 text-sm font-semibold">{getCategoryName(sub.psd_category_id)}</td>
                       <td className="px-5 py-3 text-sm text-center">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${sub.psd_is_active === 'A' ? 'bg-green-100 text-green-800 dark:bg-green-900/30' : 'bg-red-100 text-red-800 dark:bg-red-900/30'
-                          }`}>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                          sub.psd_is_active === 'A' ? 'bg-green-100 text-green-800 dark:bg-green-900/30' : 'bg-red-100 text-red-800 dark:bg-red-900/30'
+                        }`}>
                           {sub.psd_is_active === 'A' ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -811,8 +822,9 @@ const ProductManagement = () => {
                           </button>
                           <button
                             onClick={() => toggleSubcatStatus(sub.psd_subcategory_id)}
-                            className={`text-xs font-bold underline transition-colors ${sub.psd_is_active === 'A' ? 'text-red-500 hover:text-red-700' : 'text-green-500 hover:text-green-700'
-                              }`}
+                            className={`text-xs font-bold underline transition-colors ${
+                              sub.psd_is_active === 'A' ? 'text-red-500 hover:text-red-700' : 'text-green-500 hover:text-green-700'
+                            }`}
                           >
                             {sub.psd_is_active === 'A' ? 'Deactivate' : 'Activate'}
                           </button>
@@ -830,16 +842,17 @@ const ProductManagement = () => {
       {/* PRODUCT DIALOG MODAL */}
       {isProdModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4">
-          <div className={`rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-scale-up ${darkMode ? 'bg-gray-850 border border-gray-700 text-white' : 'bg-white text-gray-800'
-            }`}>
+          <div className={`rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-scale-up ${
+            darkMode ? 'bg-gray-850 border border-gray-700 text-white' : 'bg-white text-gray-800'
+          }`}>
             <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-bold">{currentProduct.ppd_product_id ? 'Edit Product Details' : 'Add New Product'}</h2>
               <button onClick={() => setIsProdModalOpen(false)} className="hover:opacity-75"><FiX className="w-5 h-5" /></button>
             </div>
-
+            
             <form onSubmit={handleSaveProduct}>
               <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
-
+                
                 {/* Image and basic info */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-1 flex flex-col items-center justify-center">
@@ -853,20 +866,20 @@ const ProductManagement = () => {
                             onError={(e) => {
                               const src = e.target.src;
                               if (!src || !src.includes('imageName=')) return;
-
+                              
                               const retryCount = parseInt(e.target.dataset.retryCount || '0', 10);
                               const extensions = ['.jpeg', '.jpg', '.png', '.webp', '.gif'];
-
+                              
                               // Only retry a maximum of 3 times
                               if (retryCount >= extensions.length) {
                                 e.target.style.display = 'none';
                                 return;
                               }
-
+                              
                               try {
                                 const url = new URL(src);
                                 const imageName = url.searchParams.get('imageName');
-
+                                
                                 if (imageName) {
                                   // Remove any existing extension from imageName
                                   const baseImageName = imageName.replace(/\.\w+$/, '');
@@ -920,7 +933,7 @@ const ProductManagement = () => {
                       />
                     </div>
                   </div>
-
+                  
                   <div className="sm:col-span-2 space-y-4">
                     <div>
                       <label className="block text-xs font-bold mb-1 uppercase tracking-wide">Product Name *</label>
@@ -930,8 +943,9 @@ const ProductManagement = () => {
                         placeholder="e.g. Blue Indigo Silk Saree"
                         value={currentProduct.ppd_product_name}
                         onChange={e => setCurrentProduct({ ...currentProduct, ppd_product_name: e.target.value })}
-                        className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
-                          }`}
+                        className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                          darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                        }`}
                       />
                     </div>
                     <div>
@@ -945,8 +959,9 @@ const ProductManagement = () => {
                           placeholder="Price"
                           value={currentProduct.ppd_price}
                           onChange={e => setCurrentProduct({ ...currentProduct, ppd_price: e.target.value })}
-                          className={`w-full pl-9 pr-4 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
-                            }`}
+                          className={`w-full pl-9 pr-4 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                          }`}
                         />
                       </div>
                     </div>
@@ -962,8 +977,9 @@ const ProductManagement = () => {
                       placeholder="e.g. RSB-SAR-001"
                       value={currentProduct.ppd_product_code}
                       onChange={e => setCurrentProduct({ ...currentProduct, ppd_product_code: e.target.value })}
-                      className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
-                        }`}
+                      className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                        darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                      }`}
                     />
                   </div>
                   <div>
@@ -974,8 +990,9 @@ const ProductManagement = () => {
                       placeholder="e.g. 8801122330012"
                       value={currentProduct.ppd_barcode}
                       onChange={e => setCurrentProduct({ ...currentProduct, ppd_barcode: e.target.value })}
-                      className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
-                        }`}
+                      className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                        darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                      }`}
                     />
                   </div>
                 </div>
@@ -987,8 +1004,9 @@ const ProductManagement = () => {
                       required
                       value={currentProduct.ppd_category_id}
                       onChange={e => setCurrentProduct({ ...currentProduct, ppd_category_id: e.target.value, ppd_subcategory_id: '' })}
-                      className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300'
-                        }`}
+                      className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                        darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300'
+                      }`}
                     >
                       <option value="" disabled>Select Category</option>
                       {categories.map(c => (
@@ -996,14 +1014,15 @@ const ProductManagement = () => {
                       ))}
                     </select>
                   </div>
-
+                  
                   <div>
                     <label className="block text-xs font-bold mb-1 uppercase tracking-wide">Subcategory</label>
                     <select
                       value={currentProduct.ppd_subcategory_id}
                       onChange={e => setCurrentProduct({ ...currentProduct, ppd_subcategory_id: e.target.value })}
-                      className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300'
-                        }`}
+                      className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                        darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300'
+                      }`}
                     >
                       <option value="">None / Select Subcategory</option>
                       {subcategories
@@ -1039,8 +1058,9 @@ const ProductManagement = () => {
       {/* CATEGORY DIALOG MODAL */}
       {isCatModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4">
-          <div className={`rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up ${darkMode ? 'bg-gray-800 border border-gray-700 text-white' : 'bg-white text-gray-800'
-            }`}>
+          <div className={`rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up ${
+            darkMode ? 'bg-gray-800 border border-gray-700 text-white' : 'bg-white text-gray-800'
+          }`}>
             <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-bold">{editingCategory ? 'Edit Category' : 'Add Category'}</h2>
               <button onClick={() => { setIsCatModalOpen(false); setEditingCategory(null); }} className="hover:opacity-75"><FiX className="w-5 h-5" /></button>
@@ -1054,8 +1074,9 @@ const ProductManagement = () => {
                   placeholder="e.g. Saree, Sarong, Frock"
                   value={categoryName}
                   onChange={e => setCategoryName(e.target.value)}
-                  className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
-                    }`}
+                  className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                  }`}
                 />
               </div>
               <div className="flex justify-end gap-3 p-5 bg-gray-50 dark:bg-gray-900/40">
@@ -1081,8 +1102,9 @@ const ProductManagement = () => {
       {/* SUBCATEGORY DIALOG MODAL */}
       {isSubcatModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4">
-          <div className={`rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up ${darkMode ? 'bg-gray-800 border border-gray-700 text-white' : 'bg-white text-gray-800'
-            }`}>
+          <div className={`rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up ${
+            darkMode ? 'bg-gray-800 border border-gray-700 text-white' : 'bg-white text-gray-800'
+          }`}>
             <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-bold">{editingSubcategory ? 'Edit Subcategory' : 'Add Subcategory'}</h2>
               <button onClick={() => { setIsSubcatModalOpen(false); setEditingSubcategory(null); }} className="hover:opacity-75"><FiX className="w-5 h-5" /></button>
@@ -1095,8 +1117,9 @@ const ProductManagement = () => {
                     required
                     value={parentCategoryId}
                     onChange={e => setParentCategoryId(e.target.value)}
-                    className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300'
-                      }`}
+                    className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                      darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300'
+                    }`}
                   >
                     <option value="" disabled>Select Category</option>
                     {categories.map(c => (
@@ -1112,8 +1135,9 @@ const ProductManagement = () => {
                     placeholder="e.g. Cotton, Silk, Linen"
                     value={subcategoryName}
                     onChange={e => setSubcategoryName(e.target.value)}
-                    className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
-                      }`}
+                    className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                      darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                    }`}
                   />
                 </div>
               </div>
