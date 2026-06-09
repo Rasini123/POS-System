@@ -1,6 +1,61 @@
 import axios from "axios";
 import { API_URL } from "../../config";
 
+const PRODUCT_ADD_API_URL = process.env.REACT_APP_PRODUCT_ADD_API_URL || `${API_URL}/Products/AddProductsDetails`;
+const PRODUCT_ADD_API_BASE_URL = PRODUCT_ADD_API_URL.replace(/\/Products\/AddProductsDetails\/?$/, "") || API_URL;
+
+const pickFirst = (...values) => values.find(value => value !== undefined && value !== null && value !== "");
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const getProductIdFromResponse = (data) => {
+  const resultSet = Array.isArray(data?.ResultSet) ? data.ResultSet[0] : data?.ResultSet;
+  const numericResult = /^\d+$/.test(String(data?.Result || "")) ? data.Result : "";
+
+  return pickFirst(
+    resultSet?.ProductId,
+    resultSet?.productId,
+    resultSet?.UID,
+    data?.ProductId,
+    data?.productId,
+    data?.UID,
+    numericResult
+  );
+};
+
+const findCreatedProduct = async (productData) => {
+  const productCode = String(productData.ppd_product_code || productData.ProductCode || "");
+  const barcode = String(productData.ppd_barcode || productData.BarCode || productData.Barcode || "");
+  const productName = String(productData.ppd_product_name || productData.ProductName || "");
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const products = await productService.getAllProducts();
+    const match = [...products]
+      .filter(product => {
+        const candidateCode = String(product.ProductCode || product.ppd_product_code || "");
+        const candidateBarcode = String(product.BarCode || product.Barcode || product.ppd_barcode || "");
+        const candidateName = String(product.ProductName || product.ppd_product_name || "");
+
+        return (
+          (productCode && candidateCode === productCode) ||
+          (barcode && candidateBarcode === barcode) ||
+          (productName && candidateName === productName)
+        );
+      })
+      .sort((left, right) => Number(right.ProductId || right.ppd_product_id || 0) - Number(left.ProductId || left.ppd_product_id || 0))[0];
+
+    const productId = pickFirst(match?.ProductId, match?.ppd_product_id);
+    if (productId) return productId;
+
+    await sleep(400);
+  }
+
+  return null;
+};
+
+const isImageFile = (file) => (
+  file && typeof File !== "undefined" && file instanceof File
+);
+
 export const productService = {
   // 1. GET: get all products
   getAllProducts: async () => {
@@ -95,9 +150,10 @@ export const productService = {
   // 3. POST: add product (query params mapping with optional automatic image upload integration)
   addProduct: async (productData) => {
     try {
-      const response = await axios.post(`${API_URL}/Products/AddProductsDetails`, null, {
+      const response = await axios.post(PRODUCT_ADD_API_URL, null, {
         params: {
           ProductCode: String(productData.ppd_product_code || productData.ProductCode || ""),
+          BarCode: String(productData.ppd_barcode || productData.BarCode || productData.Barcode || ""),
           ProductName: String(productData.ppd_product_name || productData.ProductName || ""),
           CategoryId: String(productData.ppd_category_id || productData.CategoryId || ""),
           SubCategoryId: String(productData.ppd_subcategory_id || productData.SubCategoryId || ""),
@@ -107,13 +163,15 @@ export const productService = {
         }
       });
 
-      // Extract new product ID to upload the image file automatically
-      const resSet = response.data?.ResultSet;
-      const productId = (Array.isArray(resSet) ? resSet[0]?.ProductId : resSet?.ProductId) || response.data?.ProductId || response.data?.Result;
+      let productId = getProductIdFromResponse(response.data);
+      if (!productId && isImageFile(productData._imageFile)) {
+        productId = await findCreatedProduct(productData);
+      }
 
-      if (productId && productData._imageFile && productData._imageFile instanceof File) {
+      if (productId && isImageFile(productData._imageFile)) {
         try {
           await productService.uploadProductImage(productId, productData._imageFile);
+          await sleep(500);
         } catch (imgErr) {
           console.error("Failed to upload product image after creating product:", imgErr);
         }
@@ -132,6 +190,8 @@ export const productService = {
       const response = await axios.post(`${API_URL}/Products/PutProductsDetails`, null, {
         params: {
           ProductId: String(productId || ""),
+          ProductCode: String(productData.ppd_product_code || productData.ProductCode || ""),
+          BarCode: String(productData.ppd_barcode || productData.BarCode || productData.Barcode || ""),
           ProductName: String(productData.ppd_product_name || productData.ProductName || ""),
           Price: String(productData.ppd_price || productData.Price || "0"),
           CategoryId: String(productData.ppd_category_id || productData.CategoryId || ""),
@@ -142,9 +202,10 @@ export const productService = {
         }
       });
 
-      if (productId && productData._imageFile && productData._imageFile instanceof File) {
+      if (productId && isImageFile(productData._imageFile)) {
         try {
           await productService.uploadProductImage(productId, productData._imageFile);
+          await sleep(500);
         } catch (imgErr) {
           console.error("Failed to upload product image after updating product:", imgErr);
         }
@@ -185,7 +246,7 @@ export const productService = {
     try {
       const formData = new FormData();
       formData.append("ImageFile", imageFile);
-      const response = await axios.post(`${API_URL}/Products/UploadProductImage`, formData, {
+      const response = await axios.post(`${PRODUCT_ADD_API_BASE_URL}/Products/UploadProductImage`, formData, {
         params: { ProductId: String(productId) },
         headers: {
           "Content-Type": "multipart/form-data"
@@ -208,13 +269,24 @@ export const productService = {
     if (!idOrUrl) return null;
     try {
       let url = idOrUrl;
+      if (typeof idOrUrl === 'string' && idOrUrl.startsWith('http') && !idOrUrl.includes('/Products/GetProductImage')) {
+        return idOrUrl;
+      }
       if (typeof idOrUrl === 'number' || !isNaN(idOrUrl)) {
         url = `${API_URL}/Products/GetProductImage?ProductId=${idOrUrl}`;
       }
-      const response = await axios.get(url, {
-        responseType: "blob",
-      });
-      return URL.createObjectURL(response.data);
+      const response = await axios.get(url);
+      const imageUrl = response.data?.imageUrl || response.data?.ImageUrl;
+
+      if (imageUrl) {
+        return imageUrl;
+      }
+
+      if (response.data instanceof Blob) {
+        return URL.createObjectURL(response.data);
+      }
+
+      return url;
     } catch (err) {
       return null;
     }

@@ -1,5 +1,23 @@
+import { API_URL } from '../config';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://testrcc.dockyardsoftware.com';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || API_URL;
+
+const toQueryString = (params = {}) => {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.append(key, String(value));
+    }
+  });
+
+  const query = searchParams.toString();
+  return query ? `?${query}` : '';
+};
+
+const postWithParams = (endpoint, params = {}) => apiRequest(`${endpoint}${toQueryString(params)}`, {
+  method: 'POST'
+});
 
 export const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
@@ -48,14 +66,118 @@ export const authAPI = {
 export const productsAPI = {
   getAll: () => apiRequest('/Products/GetAllProducts'),
   getById: (id) => apiRequest(`/Products/GetProductsByProductId?ProductId=${id}`),
-  create: (product) => apiRequest('/Products/AddProductsDetails', {
-    method: 'POST',
-    body: product
-  }),
-  update: (id, product) => apiRequest('/Products/PutProductsDetails', {
-    method: 'POST',
-    body: product
+  create: (product) => postWithParams('/Products/AddProductsDetails', product),
+  update: (id, product) => postWithParams('/Products/PutProductsDetails', {
+    ProductId: id,
+    ...product
   })
+};
+
+export const returnsAPI = {
+  markReturn: ({ BillItemId, ReturnedQty, UpdatedBy = 1 }) => postWithParams('/Returns/MarkReturn', {
+    BillItemId,
+    ReturnedQty,
+    UpdatedBy
+  }),
+  getAll: () => apiRequest('/Returns/GetAllReturns'),
+  getByBillId: (BillId) => apiRequest(`/Returns/GetReturnsByBillId${toQueryString({ BillId })}`),
+  getSummary: () => apiRequest('/Returns/GetReturnSummary')
+};
+
+export const holdDetailsAPI = {
+  addHoldItem: ({ SessionId, UserId, ProductId, Qty, UnitPrice, CreatedBy }) => postWithParams('/HoldDetails/AddHoldItem', {
+    SessionId,
+    UserId,
+    ProductId,
+    Qty,
+    UnitPrice,
+    CreatedBy
+  }),
+  updateHoldItem: ({ HoldId, Qty, UnitPrice, UpdatedBy }) => postWithParams('/HoldDetails/UpdateHoldItem', {
+    HoldId,
+    Qty,
+    UnitPrice,
+    UpdatedBy
+  }),
+  softDeleteHoldItem: ({ HoldId, UpdatedBy }) => postWithParams('/HoldDetails/SoftDeleteHoldItem', {
+    HoldId,
+    UpdatedBy
+  }),
+  releaseHold: ({ SessionId, UpdatedBy }) => postWithParams('/HoldDetails/ReleaseHold', {
+    SessionId,
+    UpdatedBy
+  }),
+  getAllActive: () => apiRequest('/HoldDetails/GetAllActiveHolds'),
+  getById: (HoldId) => apiRequest(`/HoldDetails/GetHoldById${toQueryString({ HoldId })}`),
+  getBySessionId: (SessionId) => apiRequest(`/HoldDetails/GetHoldsBySessionId${toQueryString({ SessionId })}`)
+};
+
+export const usersAPI = {
+  register: (user) => apiRequest('/User/AddUserDetails', {
+    method: 'POST',
+    body: user
+  }),
+  login: (credentials) => apiRequest('/User/LoginUser', {
+    method: 'POST',
+    body: credentials
+  }),
+  update: (user) => apiRequest('/User/PutUserDetails', {
+    method: 'POST',
+    body: user
+  }),
+  getAll: () => apiRequest('/User/GetAllUsers')
+};
+
+export const categoriesAPI = {
+  create: (category) => apiRequest('/Categories/AddCategoriesDetails', {
+    method: 'POST',
+    body: category
+  }),
+  update: (category) => apiRequest('/Categories/PutCategoriesDetails', {
+    method: 'POST',
+    body: category
+  }),
+  getAll: () => apiRequest('/Categories/GetAllCategories'),
+  getById: (CategoryId) => apiRequest(`/Categories/GetCategoriesByCategoryId${toQueryString({ CategoryId })}`)
+};
+
+export const subCategoriesAPI = {
+  create: (subcategory) => apiRequest('/SubCategories/AddSubCategoriesDetails', {
+    method: 'POST',
+    body: subcategory
+  }),
+  update: (subcategory) => apiRequest('/SubCategories/PutSubCategoriesDetails', {
+    method: 'POST',
+    body: subcategory
+  }),
+  getAll: () => apiRequest('/SubCategories/GetAllSubCategories'),
+  getById: (SubCategoryId) => apiRequest(`/SubCategories/GetSubCategoriesBySubCategoryId${toQueryString({ SubCategoryId })}`)
+};
+
+export const billsAPI = {
+  create: (bill) => apiRequest('/Bills/AddBillsDetails', {
+    method: 'POST',
+    body: bill
+  }),
+  update: (bill) => apiRequest('/Bills/PutBillsDetails', {
+    method: 'POST',
+    body: bill
+  }),
+  getAll: () => apiRequest('/Bills/GetAllBills'),
+  getById: (BillId) => apiRequest(`/Bills/GetBillsByBillId${toQueryString({ BillId })}`)
+};
+
+export const billItemsAPI = {
+  create: (billItem) => apiRequest('/BillItems/AddBillItemsDetails', {
+    method: 'POST',
+    body: billItem
+  }),
+  update: (billItem) => apiRequest('/BillItems/PutBillItemsDetails', {
+    method: 'POST',
+    body: billItem
+  }),
+  getAll: () => apiRequest('/BillItems/GetAllBillItems'),
+  getById: (BillItemId) => apiRequest(`/BillItems/GetBillItemsByBillItemsId${toQueryString({ BillItemId })}`)
 };
 
 

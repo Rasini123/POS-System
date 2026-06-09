@@ -148,7 +148,7 @@ const ProductCard = ({ product, darkMode, onAddToCart }) => {
   }, [product.image]);
 
   const handleImageError = () => {
-    if (imageSrc && imageSrc.includes('ProductPhotoPreview?imageName=')) {
+    if (imageSrc && imageSrc.includes('/Products/ServeImage?fileName=')) {
       if (imageSrc.endsWith('.jpeg')) {
         setImageSrc(imageSrc.replace('.jpeg', '.jpg'));
       } else if (imageSrc.endsWith('.jpg')) {

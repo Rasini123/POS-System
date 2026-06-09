@@ -118,14 +118,54 @@ import axios from "axios";
 import { API_URL } from "../../config";
 import { billService } from "./billService";
 
-const getCreatedBillByNumber = async (billNo) => {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+const getFirst = (...values) => values.find(value => value !== undefined && value !== null && value !== "");
+
+const normalizeBill = (bill, fallbackBillNo) => {
+  if (!bill) return null;
+  const resultSet = bill.ResultSet;
+  const firstResult = Array.isArray(resultSet) ? resultSet[0] : resultSet;
+  const source = firstResult || bill;
+  const resultId = /^\d+$/.test(String(bill.Result || "")) ? bill.Result : "";
+  const billId = getFirst(
+    source.BillId,
+    source.billId,
+    source.pbd_bill_id,
+    bill.BillId,
+    bill.billId,
+    bill.UID,
+    resultId
+  );
+
+  if (!billId) return null;
+
+  return {
+    ...source,
+    BillId: billId,
+    BillNo: getFirst(source.BillNo, source.pbd_bill_no, bill.BillNo, fallbackBillNo)
+  };
+};
+
+const numbersMatch = (left, right) => Math.abs(Number(left || 0) - Number(right || 0)) < 0.01;
+
+const getCreatedBill = async ({ billNo, userId, billDate, netAmount }) => {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
     const allBillsResponse = await axios.get(`${API_URL}/Bills/GetAllBills`);
     const bills = allBillsResponse.data?.ResultSet || [];
     const createdBill = bills.find(b => String(b.BillNo) === String(billNo));
 
-    if (createdBill) return createdBill;
-    await new Promise(resolve => setTimeout(resolve, 300));
+    if (createdBill) return normalizeBill(createdBill, billNo);
+
+    const matchingBill = [...bills]
+      .filter(b => (
+        String(getFirst(b.UserId, b.pbd_user_id, userId)) === String(userId) &&
+        String(getFirst(b.BillDate, b.pbd_bill_date, "")).slice(0, 10) === String(billDate) &&
+        numbersMatch(getFirst(b.NetAmount, b.pbd_net_amount, b.TotalAmount), netAmount)
+      ))
+      .sort((a, b) => Number(getFirst(b.BillId, b.pbd_bill_id, 0)) - Number(getFirst(a.BillId, a.pbd_bill_id, 0)))[0];
+
+    if (matchingBill) return normalizeBill(matchingBill, billNo);
+
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 
   return null;
@@ -327,9 +367,14 @@ export const invoiceService = {
 
       const billResponse = await axios.post(`${API_URL}/Bills/AddBillsDetails`, billFormData);
 
-      let createdBill = billResponse.data?.ResultSet;
+      let createdBill = normalizeBill(billResponse.data, billNo);
       if (!createdBill?.BillId) {
-        createdBill = await getCreatedBillByNumber(billNo);
+        createdBill = await getCreatedBill({
+          billNo,
+          userId,
+          billDate: currentDate,
+          netAmount
+        });
       }
       
       if (!createdBill?.BillId) {

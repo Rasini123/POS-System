@@ -75,7 +75,7 @@ const ProductManagement = () => {
         ppd_subcategory_id: (p.SubCategoryId || p.ppd_subcategory_id) ? parseInt(p.SubCategoryId || p.ppd_subcategory_id) : null,
         ppd_price: parseFloat(p.Price || p.ppd_price) || 0,
         ppd_product_image: (() => {
-          const rawImg = p.ProductImage || p.ppd_product_image || '';
+          const rawImg = p.ImageUrl || p.imageUrl || p.ProductImage || p.ppd_product_image || '';
           const productId = p.ProductId || p.ppd_product_id;
           
           if (rawImg && (rawImg.startsWith('blob:') || rawImg.startsWith('data:'))) {
@@ -84,8 +84,8 @@ const ProductManagement = () => {
           if (rawImg && rawImg.includes('svg+xml')) {
             return rawImg;
           }
-          if (productId) {
-            return `${API_URL}/Products/GetProductImage?ProductId=${productId}`;
+          if (rawImg && rawImg.startsWith('http')) {
+            return rawImg;
           }
           return '';
         })(),
@@ -443,7 +443,7 @@ const ProductManagement = () => {
              ppd_barcode: apiProductRaw.BarCode || match.ppd_barcode,
              ppd_category_id: apiProductRaw.CategoryId ? parseInt(apiProductRaw.CategoryId) : match.ppd_category_id,
              ppd_subcategory_id: apiProductRaw.SubCategoryId ? parseInt(apiProductRaw.SubCategoryId) : match.ppd_subcategory_id,
-             ppd_product_image: apiProductRaw.ProductImage || match.ppd_product_image,
+             ppd_product_image: apiProductRaw.ImageUrl || apiProductRaw.imageUrl || apiProductRaw.ProductImage || match.ppd_product_image,
              ppd_is_active: apiProductRaw.IsActive || match.ppd_is_active
            };
            setProducts(products.map(p => p.ppd_product_id === match.ppd_product_id ? updatedProduct : p));
@@ -613,7 +613,7 @@ const ProductManagement = () => {
                                   // Remove any existing extension from imageName
                                   const baseImageName = imageName.replace(/\.\w+$/, '');
                                   const newExt = extensions[retryCount];
-                                  e.target.src = `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${baseImageName}${newExt}`;
+                                  e.target.src = `${API_URL}/Products/ServeImage?fileName=${baseImageName}${newExt}`;
                                   e.target.dataset.retryCount = (retryCount + 1).toString();
                                 } else {
                                   e.target.style.display = 'none';
@@ -884,7 +884,7 @@ const ProductManagement = () => {
                                   // Remove any existing extension from imageName
                                   const baseImageName = imageName.replace(/\.\w+$/, '');
                                   const newExt = extensions[retryCount];
-                                  e.target.src = `https://testrcc.dockyardsoftware.com/Products/ProductPhotoPreview?imageName=${baseImageName}${newExt}`;
+                                  e.target.src = `${API_URL}/Products/ServeImage?fileName=${baseImageName}${newExt}`;
                                   e.target.dataset.retryCount = (retryCount + 1).toString();
                                 } else {
                                   e.target.style.display = 'none';
