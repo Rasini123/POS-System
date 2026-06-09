@@ -1377,6 +1377,7 @@ import {
   holdSale,
   resumeSale,
   getHeldSales,
+  fetchHeldSales,
   addToCartWithSync,
 } from "../../actions/POS/cartActions";
 import { fetchProducts, searchProducts } from "../../actions/POS/productAction";
@@ -1397,7 +1398,7 @@ const formatCurrency = (value) => {
   return value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
-const CartSection = ({ cartFocusMode = false }) => {
+const CartSection = ({ cartFocusMode = false, initialTab = "NEW_CART", onTabChange }) => {
   const dispatch = useDispatch();
   const { tabs, activeTabId, loading, syncLoading, resumeLoading, holdLoading } =
     useSelector((state) => state.cart);
@@ -1413,8 +1414,12 @@ const CartSection = ({ cartFocusMode = false }) => {
   const renameInputRef = useRef(null);
   const quantityInputRefs = useRef({});
 
+  const [mainTab, setMainTabState] = useState(initialTab);
+  const setMainTab = (tab) => {
+    setMainTabState(tab);
+    if (onTabChange) onTabChange(tab);
+  };
   const [heldSales, setHeldSales] = useState([]);
-  const [showHeldSalesModal, setShowHeldSalesModal] = useState(false);
 
   const { clearDisplay } = useLedDisplay();
 
@@ -1656,10 +1661,20 @@ const CartSection = ({ cartFocusMode = false }) => {
     }
   }, [items.length, clearDisplay]);
 
-  const loadHeldSales = () => {
-    const sales = getHeldSales();
-
-    setHeldSales(sales);
+  const loadHeldSales = async () => {
+    // First show immediate feedback from local storage
+    const localSales = getHeldSales();
+    setHeldSales(localSales);
+    
+    // Then fetch actual state from API
+    try {
+      const apiSales = await dispatch(fetchHeldSales());
+      if (apiSales && Array.isArray(apiSales)) {
+        setHeldSales(apiSales);
+      }
+    } catch (error) {
+      console.error("Failed to load held sales from API", error);
+    }
   };
 
   const handleHoldSale = () => {
@@ -1704,7 +1719,7 @@ const CartSection = ({ cartFocusMode = false }) => {
       .then((result) => {
 
         if (result && result.success) {
-          setShowHeldSalesModal(false);
+          setMainTab("NEW_CART");
           loadHeldSales();
           showAlertMessage("Sale resumed successfully!", "success");
         }
@@ -1749,24 +1764,46 @@ const CartSection = ({ cartFocusMode = false }) => {
     }
   };
 
-  // FIXED: openResumeModal function - ENSURES MODAL OPENS
-  const openResumeModal = () => {
-
-    loadHeldSales();
-    setShowHeldSalesModal(true);
-
+  const handleDeleteHeldSale = (heldSale) => {
+    showConfirm({
+      title: "Discard Held Sale",
+      message: "Are you sure you want to discard this held sale? This action cannot be undone.",
+      confirmText: "Discard",
+      onConfirm: async () => {
+        try {
+          // If we have a backend session ID, release it
+          if (heldSale.holdSessionId) {
+            const { holdService } = await import('../../services/POS/holdService');
+            await holdService.releaseHold(heldSale.holdSessionId);
+          }
+          
+          // Remove from local storage
+          const { cartService } = await import('../../services/POS/cartService');
+          cartService.removeFromHeldSales(heldSale.saleId);
+          
+          showAlertMessage("Held sale discarded successfully!", "success");
+          loadHeldSales();
+        } catch (error) {
+          showAlertMessage("Failed to discard held sale.", "error");
+          console.error(error);
+        }
+      }
+    });
   };
 
-  // FIXED: closeResumeModal function
-  const closeResumeModal = () => {
+  const openResumeModal = () => {
+    loadHeldSales();
+    setMainTab("HOLD_BILLS");
+  };
 
-    setShowHeldSalesModal(false);
+  const closeResumeModal = () => {
+    setMainTab("NEW_CART");
   };
 
   const hasHeldSales = heldSales.length > 0;
 
   const handleAddTab = () => {
-    if (tabs.length < 2) {
+    if (tabs.length < 5) {
       dispatch(addTab());
       showAlertMessage("New tab created successfully!", "success");
     } else {
@@ -2165,131 +2202,147 @@ const CartSection = ({ cartFocusMode = false }) => {
     );
   };
 
-  if (items.length === 0 && tabs.length === 1 && !isHeld && !cartFocusMode) {
-    return (
-      <div
-        className={`flex flex-col p-3 rounded-xl h-full ${darkMode ? "bg-gray-800" : "bg-white"
-          } justify-center items-center relative`}
-      >
-        <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-          <i className="fas fa-shopping-cart text-3xl mb-2 opacity-50"></i>
-          <p className="text-md font-medium">Your cart is empty</p>
-          <p className="text-xs mt-1">Add products to see them here</p>
-
-          <div className="flex gap-2 mt-3 justify-center">
-            {hasHeldSales && (
-              <button
-                onClick={openResumeModal}
-                className="px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded text-sm hover:shadow transition-all"
-              >
-                <i className="fas fa-play mr-1"></i> Resume Sale
-              </button>
-            )}
-            {tabs.length < 5 && (
-              <button
-                onClick={handleAddTab}
-                className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded text-sm hover:shadow transition-all"
-              >
-                <i className="fas fa-plus mr-1"></i> New Tab
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* FIXED: Held Sales Modal - MOVED OUTSIDE MAIN RETURN */}
-        {showHeldSalesModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
-            <div
-              className={`p-4 rounded-lg max-w-md w-full mx-4 max-h-80 overflow-hidden flex flex-col ${darkMode ? "bg-gray-800" : "bg-white"
-                }`}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold dark:text-white">Resume Held Sale</h3>
-                <button
-                  onClick={closeResumeModal}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                >
-                  <i className="fas fa-times"></i>
-                </button>
-              </div>
-
-              {heldSales.length === 0 ? (
-                <p className="text-center py-4 text-gray-500 dark:text-gray-400">
-                  No held sales found
-                </p>
-              ) : (
-                <div className="space-y-2 flex-grow overflow-y-auto">
-                  {heldSales.map((sale) => (
-                    <div
-                      key={sale.saleId}
-                      className={`p-3 rounded border ${darkMode
-                        ? "border-gray-600 bg-gray-700"
-                        : "border-gray-300 bg-gray-50"
-                        }`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex-grow">
-                          <p className="font-semibold dark:text-white">{sale.tabName}</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Sale ID: {sale.saleId}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {sale.items.length} items • Held on{" "}
-                            {new Date(sale.heldAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => {
-
-                            handleResumeSale(sale.saleId);
-                          }}
-                          disabled={resumeLoading}
-                          className={`px-3 py-1 text-white rounded text-sm transition-colors ml-2 ${resumeLoading
-                            ? "bg-gray-400 cursor-not-allowed"
-                            : "bg-green-500 hover:bg-green-600"
-                            }`}
-                        >
-                          {resumeLoading ? (
-                            <>
-                              <i className="fas fa-spinner fa-spin mr-1"></i>
-                              Resuming...
-                            </>
-                          ) : (
-                            "Resume"
-                          )}
-                        </button>
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        Items: {sale.items.map((item) => item.name).join(", ")}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Loading overlay for resume */}
-              {resumeLoading && (
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
-                  <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
-                    <i className="fas fa-spinner fa-spin text-green-500 text-xl mr-2"></i>
-                    <span className="text-gray-700 dark:text-gray-300">
-                      Resuming sale...
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div
       className={`flex flex-col p-2 rounded-xl h-full ${darkMode ? "bg-gray-800" : "bg-white"
         } transition-all duration-300 relative`}
     >
+      {/* 2 Main Tabs - Professional POS Style */}
+      <div className={`flex border-b shrink-0 mb-2 ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
+        <button
+          onClick={() => setMainTab("NEW_CART")}
+          className={`flex-1 py-2.5 text-xs font-bold tracking-wide uppercase transition-all border-b-2 ${
+            mainTab === "NEW_CART"
+              ? "border-green-500 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+              : `border-transparent ${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`
+          }`}
+        >
+          <i className="fas fa-shopping-cart mr-1"></i> New Cart
+          {items.length > 0 && (
+            <span className="ml-1 bg-green-500 text-white text-xs rounded-full px-1.5 py-0.5">{items.length}</span>
+          )}
+        </button>
+        <button
+          onClick={() => { setMainTab("HOLD_BILLS"); loadHeldSales(); }}
+          className={`flex-1 py-2.5 text-xs font-bold tracking-wide uppercase transition-all border-b-2 ${
+            mainTab === "HOLD_BILLS"
+              ? "border-yellow-500 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20"
+              : `border-transparent ${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`
+          }`}
+        >
+          <i className="fas fa-pause-circle mr-1"></i> Hold Bills
+          {heldSales.length > 0 && (
+            <span className="ml-1 bg-yellow-500 text-white text-xs rounded-full px-1.5 py-0.5">{heldSales.length}</span>
+          )}
+        </button>
+      </div>
+
+      {mainTab === "HOLD_BILLS" ? (
+        <div className="flex flex-col flex-grow overflow-hidden">
+          <div className="flex items-center justify-between mb-2 shrink-0">
+            <span className={`text-xs font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              {heldSales.length} Held Transaction{heldSales.length !== 1 ? 's' : ''}
+            </span>
+            <button onClick={loadHeldSales} className="text-xs text-blue-500 hover:text-blue-600">
+              <i className="fas fa-sync-alt"></i> Refresh
+            </button>
+          </div>
+          {heldSales.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <i className="fas fa-receipt text-2xl text-gray-400"></i>
+              </div>
+              <p className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>No held bills</p>
+              <p className="text-xs text-gray-400 mt-1">Hold a sale to see it here</p>
+            </div>
+          ) : (
+            <div className="space-y-2 flex-grow overflow-y-auto pr-1">
+              {heldSales.map((sale, idx) => {
+                const total = sale.items.reduce((s, it) => s + ((it.discountedPrice || it.price || 0) * (it.quantity || 1)), 0);
+                return (
+                  <div key={sale.saleId} className={`rounded-lg border overflow-hidden ${
+                    darkMode ? 'border-gray-600 bg-gray-700' : 'border-gray-200 bg-white'
+                  } shadow-sm`}>
+                    {/* Card Header */}
+                    <div className={`flex items-center justify-between px-3 py-2 ${
+                      darkMode ? 'bg-gray-600' : 'bg-gray-50'
+                    } border-b ${darkMode ? 'border-gray-500' : 'border-gray-200'}`}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-yellow-500 text-white text-xs flex items-center justify-center font-bold">{idx + 1}</span>
+                        <span className={`text-xs font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                          {sale.saleId?.substring(0, 12)}...
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-400">{new Date(sale.heldAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                    </div>
+                    {/* Card Body */}
+                    <div className="px-3 py-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                          <i className="fas fa-box mr-1 text-gray-400"></i>{sale.items.length} item{sale.items.length !== 1 ? 's' : ''}
+                        </span>
+                        <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                          Rs. {formatCurrency(total)}
+                        </span>
+                      </div>
+                      <p className={`text-xs truncate ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {sale.items.map(it => it.name).join(', ')}
+                      </p>
+                    </div>
+                    {/* Card Actions */}
+                    <div className={`flex border-t ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
+                      <button
+                        onClick={() => handleDeleteHeldSale(sale)}
+                        disabled={resumeLoading}
+                        className={`flex-1 py-2 text-xs font-semibold transition-colors text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 ${
+                          resumeLoading ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        <i className="fas fa-trash mr-1"></i> Discard
+                      </button>
+                      <div className={`w-px ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}></div>
+                      <button
+                        onClick={() => { handleResumeSale(sale.saleId); setMainTab("NEW_CART"); }}
+                        disabled={resumeLoading}
+                        className={`flex-1 py-2 text-xs font-semibold transition-colors text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 ${
+                          resumeLoading ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {resumeLoading
+                          ? <><i className="fas fa-spinner fa-spin mr-1"></i>Loading...</>
+                          : <><i className="fas fa-play mr-1"></i>Resume</>}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col flex-grow overflow-hidden relative">
+          {items.length === 0 && tabs.length === 1 && !isHeld && !cartFocusMode ? (
+            <div className={`flex flex-col p-3 rounded-xl h-full ${darkMode ? "bg-gray-800" : "bg-white"} justify-center items-center relative`}>
+              <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                <i className="fas fa-shopping-cart text-3xl mb-2 opacity-50"></i>
+                <p className="text-md font-medium">Your cart is empty</p>
+                <p className="text-xs mt-1">Add products to see them here</p>
+                <div className="flex gap-2 mt-3 justify-center">
+                  {hasHeldSales && (
+                    <button onClick={openResumeModal} className="px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded text-sm hover:shadow transition-all">
+                      <i className="fas fa-play mr-1"></i> Resume Sale
+                    </button>
+                  )}
+                  {tabs.length < 5 && (
+                    <button onClick={handleAddTab} className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded text-sm hover:shadow transition-all">
+                      <i className="fas fa-plus mr-1"></i> New Tab
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
       {/* Cart Focus Mode: Batch Selection Modal */}
       {cartFocusMode && cfShowBatchModal && (
         <BatchSelectionModal
@@ -2644,91 +2697,7 @@ const CartSection = ({ cartFocusMode = false }) => {
         </div>
       </div>
 
-      {/* FIXED: Held Sales Modal - MOVED TO ROOT LEVEL */}
-      {showHeldSalesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
-          <div
-            className={`p-4 rounded-lg max-w-md w-full mx-4 max-h-80 overflow-hidden flex flex-col ${darkMode ? "bg-gray-800" : "bg-white"
-              }`}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold dark:text-white">Resume Held Sale</h3>
-              <button
-                onClick={closeResumeModal}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <i className="fas fa-times"></i>
-              </button>
-            </div>
 
-            {heldSales.length === 0 ? (
-              <p className="text-center py-4 text-gray-500 dark:text-gray-400">
-                No held sales found
-              </p>
-            ) : (
-              <div className="space-y-2 flex-grow overflow-y-auto">
-                {heldSales.map((sale) => (
-                  <div
-                    key={sale.saleId}
-                    className={`p-3 rounded border ${darkMode
-                      ? "border-gray-600 bg-gray-700"
-                      : "border-gray-300 bg-gray-50"
-                      }`}
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex-grow">
-                        <p className="font-semibold dark:text-white">{sale.tabName}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Sale ID: {sale.saleId}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {sale.items.length} items • Held on{" "}
-                          {new Date(sale.heldAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => {
-
-                          handleResumeSale(sale.saleId);
-                        }}
-                        disabled={resumeLoading}
-                        className={`px-3 py-1 text-white rounded text-sm transition-colors ml-2 ${resumeLoading
-                          ? "bg-gray-400 cursor-not-allowed"
-                          : "bg-green-500 hover:bg-green-600"
-                          }`}
-                      >
-                        {resumeLoading ? (
-                          <>
-                            <i className="fas fa-spinner fa-spin mr-1"></i>
-                            Resuming...
-                          </>
-                        ) : (
-                          "Resume"
-                        )}
-                      </button>
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      Items: {sale.items.map((item) => item.name).join(", ")}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Loading overlay for resume */}
-            {resumeLoading && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
-                  <i className="fas fa-spinner fa-spin text-green-500 text-xl mr-2"></i>
-                  <span className="text-gray-700 dark:text-gray-300">
-                    Resuming sale...
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Cart Items Section - Compact */}
       <div className="flex-grow overflow-y-auto mb-2">
@@ -3080,6 +3049,10 @@ const CartSection = ({ cartFocusMode = false }) => {
           animation: fade-in-down 0.3s ease-out;
         }
       `}</style>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };

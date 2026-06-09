@@ -1,10 +1,10 @@
 import * as actionTypes from '../../constants/POS/productConstants';
 import { productService } from '../../services/POS/ProductService';
 import { API_URL } from '../../config';
-import { 
-  dbGetProducts, 
-  dbGetCategories, 
-  dbGetSubcategories 
+import {
+  dbGetProducts,
+  dbGetCategories,
+  dbGetSubcategories
 } from '../../utils/mockDb';
 
 const getCategoryIcon = (categoryName) => {
@@ -44,14 +44,14 @@ const normalizeSubcategory = (subcategory) => ({
 const getProductImageUrl = (product) => {
   const id = pickFirst(product.ProductId, product.ppd_product_id, product.productId, product.product_id);
   const rawImg = pickFirst(product.ppd_product_image, product.ProductImage, product.productImage, product.product_image);
-  
+
   if (rawImg && (rawImg.startsWith('blob:') || rawImg.startsWith('data:'))) return rawImg;
   if (rawImg && rawImg.includes('svg+xml')) return rawImg;
-  
+
   if (id) {
     return `${API_URL}/Products/GetProductImage?ProductId=${id}`;
   }
-  
+
   if (rawImg && rawImg.startsWith('http')) return rawImg;
   return '';
 };
@@ -170,7 +170,7 @@ export const fetchCategories = () => async (dispatch) => {
         icon: getCategoryIcon(cat.pcd_category_name),
         subcategories: []
       }));
-    
+
     formattedCategories.unshift({
       id: 'all',
       icon: 'fas fa-boxes',
@@ -217,7 +217,7 @@ export const fetchSubcategories = (mainId) => async (dispatch) => {
         id: sub.psd_subcategory_id,
         label: sub.psd_subcategory_name
       }));
-    
+
     dispatch({
       type: actionTypes.FETCH_SUBCATEGORIES_SUCCESS,
       payload: { mainId, subcategories: formattedSubcategories }
@@ -236,7 +236,7 @@ export const fetchProductsBySubcategory = (subId) => async (dispatch) => {
     const formattedProducts = products
       .map(normalizeProduct)
       .filter(product => String(product.subCategory) === String(subId));
-    
+
     dispatch({
       type: actionTypes.SET_PRODUCTS,
       payload: formattedProducts

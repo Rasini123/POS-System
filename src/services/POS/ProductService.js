@@ -24,7 +24,7 @@ export const productService = {
     const products = response.data.ResultSet || [];
     return products.filter(prod => String(prod.SubCategoryId ?? prod.subCategoryId ?? prod.ppd_subcategory_id) === String(subId));
   },
-  
+
   addCategory: async (categoryName) => {
     const formData = new FormData();
     formData.append("CategoryName", categoryName);
@@ -45,8 +45,8 @@ export const productService = {
     const response = await axios.get(`${API_URL}/Categories/GetCategoriesByCategoryId`, {
       params: { CategoryId: String(categoryId) }
     });
-    return Array.isArray(response.data.ResultSet) 
-      ? response.data.ResultSet[0] 
+    return Array.isArray(response.data.ResultSet)
+      ? response.data.ResultSet[0]
       : response.data.ResultSet || response.data.Result || response.data;
   },
 
@@ -77,8 +77,8 @@ export const productService = {
     const response = await axios.get(`${API_URL}/SubCategories/GetSubCategoriesBySubCategoryId`, {
       params: { SubCategoryId: String(subcategoryId) }
     });
-    return Array.isArray(response.data.ResultSet) 
-      ? response.data.ResultSet[0] 
+    return Array.isArray(response.data.ResultSet)
+      ? response.data.ResultSet[0]
       : response.data.ResultSet || response.data.Result || response.data;
   },
 
@@ -87,8 +87,8 @@ export const productService = {
     const response = await axios.get(`${API_URL}/Products/GetProductsByProductId`, {
       params: { ProductId: String(productId) }
     });
-    return Array.isArray(response.data.ResultSet) 
-      ? response.data.ResultSet[0] 
+    return Array.isArray(response.data.ResultSet)
+      ? response.data.ResultSet[0]
       : response.data.ResultSet || response.data.Result || response.data;
   },
 
@@ -107,20 +107,50 @@ export const productService = {
         }
       });
 
+      console.log("Add Product Response:", response.data);
+
+      // Check if product creation was successful
+      const statusCode = response.data?.StatusCode || response.status;
+      const isSuccess = statusCode === 200 || response.data?.Result === "Added";
+      
+      if (!isSuccess) {
+        console.warn("Product creation may have failed:", response.data);
+        return response.data; // Return early if creation failed
+      }
+
       // Extract new product ID to upload the image file automatically
+      // API returns UID as the product ID in successful add response
       const resSet = response.data?.ResultSet;
-      const productId = (Array.isArray(resSet) ? resSet[0]?.ProductId : resSet?.ProductId) || response.data?.ProductId || response.data?.Result;
+      let productId = response.data?.UID || 
+                      (Array.isArray(resSet) ? resSet[0]?.ProductId || resSet[0]?.UID : resSet?.ProductId || resSet?.UID) || 
+                      response.data?.ProductId;
+
+      console.log("Extracted ProductId:", productId, "Type:", typeof productId);
 
       if (productId && productData._imageFile && productData._imageFile instanceof File) {
         try {
-          await productService.uploadProductImage(productId, productData._imageFile);
+          // Ensure productId is a number
+          const numProductId = Number(productId);
+          console.log("Converted ProductId to number:", numProductId);
+          
+          if (!isNaN(numProductId) && numProductId > 0) {
+            console.log("Attempting to upload image with ProductId:", numProductId);
+            const imgResponse = await productService.uploadProductImage(numProductId, productData._imageFile);
+            console.log("Image upload response:", imgResponse);
+          } else {
+            console.warn("Invalid product ID for image upload. Raw value:", productId, "Converted:", Number(productId));
+          }
         } catch (imgErr) {
           console.error("Failed to upload product image after creating product:", imgErr);
+          // Don't throw - product was created successfully even if image upload failed
         }
+      } else {
+        console.log("No image file to upload. File provided:", !!productData._imageFile, "Is File:", productData._imageFile instanceof File);
       }
 
       return response.data;
     } catch (error) {
+      console.error("Add product error:", error);
       throw error.response?.data || error.message;
     }
   },
@@ -183,16 +213,72 @@ export const productService = {
   // 7. POST: upload and replace existing product image
   uploadProductImage: async (productId, imageFile) => {
     try {
-      const formData = new FormData();
-      formData.append("ImageFile", imageFile);
-      const response = await axios.post(`${API_URL}/Products/UploadProductImage`, formData, {
-        params: { ProductId: String(productId) },
-        headers: {
-          "Content-Type": "multipart/form-data"
+      // Ensure productId is a valid number
+      const numProductId = Number(productId);
+      if (isNaN(numProductId) || numProductId <= 0) {
+        throw new Error(`Invalid ProductId: ${productId}`);
+      }
+
+      console.log("Uploading image for ProductId:", numProductId, "File:", imageFile.name, "Size:", imageFile.size);
+      
+      // Method 1: Try with ProductId as query parameter (standard)
+      try {
+        const formData = new FormData();
+        formData.append("ImageFile", imageFile);
+        
+        const response = await axios.post(`${API_URL}/Products/UploadProductImage`, formData, {
+          params: { ProductId: numProductId }
+        });
+        
+        console.log("Image upload successful via Method 1:", response.data);
+        return response.data;
+      } catch (method1Error) {
+        console.warn("Method 1 failed (query param):", method1Error.message);
+        
+        // Method 2: Try with ProductId in FormData
+        try {
+          const formData = new FormData();
+          formData.append("ProductId", numProductId);
+          formData.append("ImageFile", imageFile);
+          
+          const response = await axios.post(`${API_URL}/Products/UploadProductImage`, formData);
+          
+          console.log("Image upload successful via Method 2:", response.data);
+          return response.data;
+        } catch (method2Error) {
+          console.warn("Method 2 failed (FormData param):", method2Error.message);
+          
+          // Method 3: Try with image binary directly
+          try {
+            const response = await axios.post(
+              `${API_URL}/Products/UploadProductImage?ProductId=${numProductId}`,
+              imageFile,
+              {
+                headers: {
+                  "Content-Type": imageFile.type || "image/jpeg"
+                }
+              }
+            );
+            
+            console.log("Image upload successful via Method 3:", response.data);
+            return response.data;
+          } catch (method3Error) {
+            console.error("All image upload methods failed");
+            console.error("Method 1 error:", method1Error.response?.data || method1Error.message);
+            console.error("Method 2 error:", method2Error.response?.data || method2Error.message);
+            console.error("Method 3 error:", method3Error.response?.data || method3Error.message);
+            
+            throw new Error(`Image upload failed. Original error: ${method1Error.response?.data?.Result || method1Error.message}`);
+          }
         }
-      });
-      return response.data;
+      }
     } catch (error) {
+      console.error("Image upload error details:", {
+        productId: productId,
+        errorMessage: error.message,
+        responseData: error.response?.data,
+        responseStatus: error.response?.status
+      });
       throw error.response?.data || error.message;
     }
   },

@@ -664,37 +664,47 @@ export const updateQuantityWithSync = (id, quantity) => async (dispatch, getStat
       type: UPDATE_QUANTITY,
       payload: { id, quantity }
     });
-    
-    const sessionId = cartService.getSessionId(products.allProducts); 
-    const saleId = activeTab.saleId || cartService.getSaleId();
-    
-    if (!saleId) {
-      throw new Error('Sale ID not found for quantity update');
-    }
-     
-    const removeData = {
-      sessionId,
-      productCode: currentItem.productId || id,
-      batchId: currentItem.batchId  ,
-      saleId: saleId
-    }; 
 
-    for (let i = 0; i < currentItem.quantity; i++) {
-      await cartService.removeFromCart(removeData);
-    }
-     
-    if (quantity > 0) {
-      const cartData = {
-        sessionId,
-        warehouseCode: currentItem.Whcode,
-        productCode: currentItem.productId || id,
-        batchId: currentItem.batchId ,
-        saleId: saleId,
-        quantity: quantity
-      };
+    // If this item came from a hold session, update it via the Hold API
+    if (currentItem.holdId) {
+      try {
+        const { holdService } = await import('../../services/POS/holdService');
+        await holdService.updateHoldItem({
+          holdId: currentItem.holdId,
+          qty: quantity,
+          unitPrice: currentItem.discountedPrice || currentItem.price || 0
+        });
+      } catch (holdErr) {
+        console.warn('UpdateHoldItem API failed (continuing):', holdErr);
+      }
+    } else {
+      // Normal (non-hold) cart item: use the regular cart sync
+      const sessionId = cartService.getSessionId(products.allProducts); 
+      const saleId = activeTab.saleId || cartService.getSaleId();
       
-      await cartService.addToCart(cartData);
-    } 
+      if (saleId) {
+        const removeData = {
+          sessionId,
+          productCode: currentItem.productId || id,
+          batchId: currentItem.batchId,
+          saleId: saleId
+        }; 
+        for (let i = 0; i < currentItem.quantity; i++) {
+          await cartService.removeFromCart(removeData);
+        }
+        if (quantity > 0) {
+          const cartData = {
+            sessionId,
+            warehouseCode: currentItem.Whcode,
+            productCode: currentItem.productId || id,
+            batchId: currentItem.batchId,
+            saleId: saleId,
+            quantity: quantity
+          };
+          await cartService.addToCart(cartData);
+        }
+      }
+    }
     
     dispatch({ type: UPDATE_CART_QUANTITY_SUCCESS });
   } catch (error) {
@@ -703,7 +713,6 @@ export const updateQuantityWithSync = (id, quantity) => async (dispatch, getStat
       payload: error.message
     });
 
-     
     const { cart } = getState();
     const activeTab = cart.tabs.find(tab => tab.id === cart.activeTabId) || cart.tabs[0];
     const originalItem = activeTab.items.find(item => item.id === id);
@@ -732,22 +741,29 @@ export const removeFromCartWithSync = (id) => async (dispatch, getState) => {
       type: REMOVE_FROM_CART,
       payload: id
     });
-    
-    const sessionId = cartService.getSessionId(products.allProducts);
-    const saleId = activeTab.saleId || cartService.getSaleId();
-    
-    if (!saleId) {
-      throw new Error('Sale ID not found for removal');
+
+    // If this item came from a hold session, soft-delete it via Hold API
+    if (itemToRemove.holdId) {
+      try {
+        const { holdService } = await import('../../services/POS/holdService');
+        await holdService.softDeleteHoldItem(itemToRemove.holdId);
+      } catch (holdErr) {
+        console.warn('SoftDeleteHoldItem API failed (continuing):', holdErr);
+      }
+    } else {
+      // Normal cart item: use regular remove
+      const sessionId = cartService.getSessionId(products.allProducts);
+      const saleId = activeTab.saleId || cartService.getSaleId();
+      if (saleId) {
+        const removeData = {
+          sessionId,
+          productCode: itemToRemove.productId || id,
+          batchId: itemToRemove.batchId,
+          saleId: saleId
+        };
+        await cartService.removeFromCart(removeData);
+      }
     }
-    
-    const removeData = {
-      sessionId,
-      productCode: itemToRemove.productId || id,
-      batchId: itemToRemove.batchId ,
-      saleId: saleId
-    };
-    
-    await cartService.removeFromCart(removeData);
     
     dispatch({ type: REMOVE_FROM_CART_SUCCESS });
   } catch (error) {
@@ -756,7 +772,6 @@ export const removeFromCartWithSync = (id) => async (dispatch, getState) => {
       payload: error.message
     });
 
-    
     const product = getState().products.allProducts.find(p => p.id === id);
     if (product) {
       dispatch({
@@ -766,6 +781,7 @@ export const removeFromCartWithSync = (id) => async (dispatch, getState) => {
     }
   }
 };
+
 
 export const setSaleId = (saleId) => ({
   type: SET_SALE_ID,
@@ -888,27 +904,32 @@ export const resumeSale = (saleId) => async (dispatch, getState) => {
   dispatch({ type: RESUME_SALE_REQUEST });
   
   try {
-    const { products, cart } = getState();
+    const { products } = getState();
     
-    const sessionId = cartService.getSessionId(products.allProducts);
+    // First, try to find the held sale from the API
+    let heldSales = await dispatch(fetchHeldSales());
+    let heldSale = heldSales && heldSales.find(sale => sale.saleId === saleId);
     
-    const heldSales = cartService.getHeldSales();
-    const heldSale = heldSales.find(sale => sale.saleId === saleId);
+    // Fallback to local storage if not found in API
+    if (!heldSale) {
+      const localHeldSales = cartService.getHeldSales();
+      heldSale = localHeldSales.find(sale => sale.saleId === saleId);
+    }
     
     if (!heldSale || !heldSale.items || heldSale.items.length === 0) {
       throw new Error('No held items found for this sale');
     }
 
-    // Release the hold on the API side if we have a hold session ID
-    if (heldSale.holdSessionId) {
+    // Release the hold on the API side
+    if (heldSale.holdSessionId || heldSale.saleId) {
       try {
         const { holdService } = await import('../../services/POS/holdService');
-        await holdService.releaseHold(heldSale.holdSessionId);
+        await holdService.releaseHold(heldSale.holdSessionId || heldSale.saleId);
       } catch (releaseErr) {
         console.warn("Failed to release hold via API (continuing with local resume):", releaseErr);
       }
     } else {
-      // Try the legacy resume path
+      const sessionId = cartService.getSessionId(products.allProducts);
       await cartService.resumeSale(sessionId, saleId);
     }
     
@@ -947,6 +968,59 @@ export const resumeSale = (saleId) => async (dispatch, getState) => {
     });
 
     throw error;  
+  }
+};
+
+export const fetchHeldSales = () => async (dispatch, getState) => {
+  try {
+    const { holdService } = await import('../../services/POS/holdService');
+    const { products } = getState();
+    
+    // Fetch from backend API
+    const activeHolds = await holdService.getAllActiveHolds();
+    
+    if (!activeHolds || !Array.isArray(activeHolds) || activeHolds.length === 0) {
+      return cartService.getHeldSales(); // fallback to local storage
+    }
+
+    // Group items by SessionId
+    const grouped = {};
+    activeHolds.forEach(h => {
+      const sid = h.SessionId || h.sessionId;
+      if (!sid) return;
+      if (!grouped[sid]) {
+        grouped[sid] = {
+          saleId: sid,
+          items: [],
+          tabName: `Held Sale (${sid.substring(0, 6)})`,
+          heldAt: h.CreatedAt || h.createdAt || new Date().toISOString(),
+          holdSessionId: sid
+        };
+      }
+      
+      const productCode = h.ProductId || h.productId;
+      const productDetails = products.allProducts.find(p => p.id === productCode || p.productId === productCode);
+      
+      grouped[sid].items.push({
+        id: productCode,
+        productId: productCode,
+        name: productDetails ? productDetails.name : `Product ${productCode}`,
+        price: h.UnitPrice || h.unitPrice || (productDetails ? productDetails.price : 0),
+        discountedPrice: h.UnitPrice || h.unitPrice || (productDetails ? productDetails.price : 0),
+        quantity: Number(h.Qty || h.qty || 1),
+        stock: productDetails ? productDetails.stock : 99,
+        image: productDetails ? productDetails.image : null,
+        discountType: null,
+        discountValue: 0,
+        holdId: h.HoldId || h.holdId
+      });
+    });
+    
+    const backendSales = Object.values(grouped);
+    return backendSales;
+  } catch (error) {
+    console.error("Failed to fetch held sales from API", error);
+    return cartService.getHeldSales();
   }
 };
 

@@ -18,6 +18,7 @@ const Layout = () => {
   const isCartFocus = posLayout === 'cart-focus';
   const [activePage, setActivePage] = useState("POS");
   const [cartHidden, setCartHidden] = useState(false);
+  const [cartMainTab, setCartMainTab] = useState("NEW_CART");
 
   const hasItemsInAnyTab = tabs && tabs.some((tab) => tab.items.length > 0);
 
@@ -67,10 +68,10 @@ const Layout = () => {
               {activePage === "REPORTS" && <ReportsPage />}
             </div>
             
-            {/* Cart Section */}
-            {activePage === "POS" && !cartHidden && hasItemsInAnyTab && (
+            {/* Cart Section - always visible on POS */}
+            {activePage === "POS" && !cartHidden && (
               <div className="flex-shrink-0 w-80 transition-all duration-300 overflow-y-auto">
-                <CartSection />
+                <CartSection initialTab={cartMainTab} onTabChange={setCartMainTab} />
               </div>
             )}
           </>

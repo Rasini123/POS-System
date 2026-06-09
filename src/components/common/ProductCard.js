@@ -1,4 +1,4 @@
- 
+
 // import React from 'react';
 // import { useDispatch, useSelector } from 'react-redux';
 // import { addToCart } from '../../actions/cartActions';
@@ -62,21 +62,21 @@
 //           OUT
 //         </div>
 //       )}
-      
+
 //       {/* Low Stock Label */}
 //       {availableQuantity > 0 && availableQuantity < 5 && (
 //         <div className="absolute top-1 md:top-2 right-1 md:right-2 bg-red-500 text-white text-xs px-1 md:px-2 py-0.5 md:py-1 rounded-full font-semibold z-10">
 //           LOW
 //         </div>
 //       )}
-      
+
 //       {/* Discount Label - Positioned on top left */}
 //       {hasDiscount && discountPercentage > 0 && (
 //         <div className="absolute top-1 md:top-2 left-1 md:left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs px-1 md:px-2 py-0.5 md:py-1 rounded-full font-semibold z-10 shadow-md">
 //           {discountPercentage.toFixed(1)}% OFF
 //         </div>
 //       )}
-      
+
 //       <div
 //         className="w-12 h-12 md:w-16 md:h-16 rounded-lg flex items-center justify-center text-white text-sm md:text-lg shadow-md mb-1 md:mb-2 bg-cover bg-center"
 //         style={{
@@ -86,11 +86,11 @@
 //       >
 //         {!product.image && <i className={getProductIcon(product.category)}></i>}
 //       </div>
-      
+
 //       <div className={`font-semibold text-xs mb-1 ${darkMode ? 'text-white' : 'text-gray-800'} h-8 md:h-10 flex items-center justify-center px-1`}>
 //         {product.name.length > 20 ? `${product.name.substring(0, 20)}...` : product.name}
 //       </div>
-      
+
 //       {/* Price Display with Discount */}
 //       <div className="flex flex-col items-center">
 //         {hasDiscount ? (
@@ -108,7 +108,7 @@
 //           </span>
 //         )}
 //       </div>
-      
+
 //       {/* Enhanced Stock Display */}
 //       <div className={`text-xs ${
 //         availableQuantity <= 0 ? 'text-red-500 font-semibold' :
@@ -166,7 +166,7 @@ const ProductCard = ({ product, darkMode, onAddToCart }) => {
     if (product.stock <= 0) {
       return;
     }
-    
+
     if (onAddToCart) {
       onAddToCart();
     }
@@ -197,13 +197,11 @@ const ProductCard = ({ product, darkMode, onAddToCart }) => {
   return (
     <div
       onClick={handleAddToCart}
-      className={`flex flex-col items-center p-1 md:p-1 rounded-xl text-center transition-all cursor-pointer border ${
-        darkMode
+      className={`flex flex-col items-center p-1 md:p-1 rounded-xl text-center transition-all cursor-pointer border ${darkMode
           ? 'bg-gray-800 border-gray-700 hover:border-green-500'
           : 'bg-white border-gray-200 hover:border-green-500'
-      } hover:shadow-lg hover:-translate-y-1 h-28 md:h-36 relative overflow-hidden ${
-        availableQuantity <= 0 ? 'opacity-50 cursor-not-allowed' : ''
-      }`}
+        } hover:shadow-lg hover:-translate-y-1 h-28 md:h-36 relative overflow-hidden ${availableQuantity <= 0 ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
     >
       {imageSrc && (
         <img
@@ -220,28 +218,28 @@ const ProductCard = ({ product, darkMode, onAddToCart }) => {
           {product.totalBatches} Batches
         </div>
       )}
-      
+
       {/* Out of Stock Label */}
       {availableQuantity <= 0 && (
         <div className="absolute top-1 md:top-2 right-1 md:right-2 bg-gray-500 text-white text-xs px-1 md:px-2 py-0.5 md:py-1 rounded-full font-semibold z-10">
           OUT
         </div>
       )}
-      
+
       {/* Low Stock Label */}
       {availableQuantity > 0 && availableQuantity < 5 && (
         <div className="absolute top-1 md:top-2 right-1 md:right-2 bg-red-500 text-white text-xs px-1 md:px-2 py-0.5 md:py-1 rounded-full font-semibold z-10">
           LOW
         </div>
       )}
-      
+
       {/* Discount Label - Positioned on top left */}
       {hasDiscount && discountPercentage > 0 && (
         <div className="absolute top-1 md:top-2 left-1 md:left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs px-1 md:px-2 py-0.5 md:py-1 rounded-full font-semibold z-10 shadow-md">
           {discountPercentage.toFixed(1)}% OFF
         </div>
       )}
-      
+
       <div
         className="w-12 h-12 md:w-16 md:h-16 rounded-lg flex items-center justify-center text-white text-sm md:text-lg shadow-md mb-1 md:mb-2 bg-cover bg-center"
         style={{
@@ -251,11 +249,11 @@ const ProductCard = ({ product, darkMode, onAddToCart }) => {
       >
         {!imageSrc && <i className={getProductIcon(product.category)}></i>}
       </div>
-      
+
       <div className={`font-semibold text-xs mb-1 ${darkMode ? 'text-white' : 'text-gray-800'} h-8 md:h-10 flex items-center justify-center px-1`}>
         {product.name.length > 20 ? `${product.name.substring(0, 20)}...` : product.name}
       </div>
-      
+
       {/* Price Display with Discount */}
       <div className="flex flex-col items-center">
         {hasDiscount ? (
@@ -273,18 +271,17 @@ const ProductCard = ({ product, darkMode, onAddToCart }) => {
           </span>
         )}
       </div>
-      
+
       {/* Enhanced Stock Display */}
-      <div className={`text-xs ${
-        availableQuantity <= 0 ? 'text-red-500 font-semibold' :
-        availableQuantity < 5 ? 'text-yellow-500 font-semibold' :
-        darkMode ? 'text-gray-400' : 'text-gray-500'
-      }`}>
+      <div className={`text-xs ${availableQuantity <= 0 ? 'text-red-500 font-semibold' :
+          availableQuantity < 5 ? 'text-yellow-500 font-semibold' :
+            darkMode ? 'text-gray-400' : 'text-gray-500'
+        }`}>
         {availableQuantity <= 0 ? 'Out of Stock' :
-         currentCartQuantity > 0 ? `Stock: ${availableQuantity} left` :
-         `Stock: ${product.stock}`}
+          currentCartQuantity > 0 ? `Stock: ${availableQuantity} left` :
+            `Stock: ${product.stock}`}
       </div>
- 
+
       {/* Show "Click to select batch" for multi-batch products */}
       {product.hasMultipleBatches && product.totalBatches > 1 && (
         <div className="text-[10px] text-blue-500 dark:text-blue-400 font-medium mt-0.5">
