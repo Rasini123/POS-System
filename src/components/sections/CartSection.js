@@ -2962,17 +2962,7 @@ const CartSection = ({ cartFocusMode = false }) => {
                             </div>
                           )}
 
-                          {/* Stock Information */}
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <span
-                              className={`text-xs font-medium ${item.stock < 5
-                                ? "text-yellow-500 dark:text-yellow-400"
-                                : "text-blue-500 dark:text-blue-400"
-                                }`}
-                            >
-                              Stock: {item.stock}
-                            </span>
-                          </div>
+
                         </div>
                       </div>
 

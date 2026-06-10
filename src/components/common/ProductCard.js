@@ -252,8 +252,8 @@ const ProductCard = ({ product, darkMode, onAddToCart }) => {
         {!imageSrc && <i className={getProductIcon(product.category)}></i>}
       </div>
       
-      <div className={`font-semibold text-xs mb-1 ${darkMode ? 'text-white' : 'text-gray-800'} h-8 md:h-10 flex items-center justify-center px-1`}>
-        {product.name.length > 20 ? `${product.name.substring(0, 20)}...` : product.name}
+      <div className={`font-semibold text-xs mb-0 ${darkMode ? 'text-white' : 'text-gray-800'} h-7 md:h-9 flex items-end justify-center px-1 pb-0.5`}>
+        <span className="text-center">{product.name.length > 20 ? `${product.name.substring(0, 20)}...` : product.name}</span>
       </div>
       
       {/* Price Display with Discount */}
@@ -274,16 +274,7 @@ const ProductCard = ({ product, darkMode, onAddToCart }) => {
         )}
       </div>
       
-      {/* Enhanced Stock Display */}
-      <div className={`text-xs ${
-        availableQuantity <= 0 ? 'text-red-500 font-semibold' :
-        availableQuantity < 5 ? 'text-yellow-500 font-semibold' :
-        darkMode ? 'text-gray-400' : 'text-gray-500'
-      }`}>
-        {availableQuantity <= 0 ? 'Out of Stock' :
-         currentCartQuantity > 0 ? `Stock: ${availableQuantity} left` :
-         `Stock: ${product.stock}`}
-      </div>
+
  
       {/* Show "Click to select batch" for multi-batch products */}
       {product.hasMultipleBatches && product.totalBatches > 1 && (
