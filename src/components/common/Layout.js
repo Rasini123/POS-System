@@ -68,7 +68,7 @@ const Layout = () => {
             </div>
             
             {/* Cart Section */}
-            {activePage === "POS" && !cartHidden && hasItemsInAnyTab && (
+            {activePage === "POS" && !cartHidden && (
               <div className="flex-shrink-0 w-80 transition-all duration-300 overflow-y-auto">
                 <CartSection />
               </div>
