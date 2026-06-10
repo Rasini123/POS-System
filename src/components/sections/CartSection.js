@@ -2573,12 +2573,26 @@ const CartSection = ({ cartFocusMode = false }) => {
         </div>
       </div>
 
-      {/* Header Section - Compact */}
-      <div className="flex justify-between items-center mb-2 pb-1 border-b dark:border-gray-700">
-        <h2 className="text-md font-bold text-green-600 dark:text-green-400">
-          Cart {isHeld && <span className="text-yellow-500 text-xs">(Held)</span>}
-        </h2>
-        <div className="flex gap-1">
+      {/* Header Section */}
+      <div className="flex justify-between items-start gap-3 mb-3 pb-3 border-b dark:border-gray-700">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              Cart
+            </h2>
+            {isHeld && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                <FiPause className="h-3 w-3" />
+                Held
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            {items.length} item{items.length !== 1 ? "s" : ""} in this sale
+            {hasHeldSales && ` • ${heldSales.length} held`}
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-1.5">
           {/* Hold/Resume buttons */}
           {isFirstTab && (
             <>
@@ -2586,10 +2600,20 @@ const CartSection = ({ cartFocusMode = false }) => {
               <button
                 onClick={openResumeModal}
                 disabled={resumeLoading}
-                className="w-6 h-6 rounded bg-blue-500 text-white flex items-center justify-center transition-all hover:bg-blue-600 text-xs disabled:opacity-50"
+                className={`h-8 rounded-md px-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  darkMode
+                    ? "bg-gray-700 text-gray-100 hover:bg-gray-600"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
                 title="View Held Sales"
               >
-                <i className="fas fa-shopping-cart"></i>
+                <i className="fas fa-clock"></i>
+                <span className="hidden sm:inline">Held</span>
+                {hasHeldSales && (
+                  <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] leading-none text-white">
+                    {heldSales.length}
+                  </span>
+                )}
               </button>
               
               {/* Hold Sale Button (visible if current sale is not held) */}
@@ -2597,13 +2621,14 @@ const CartSection = ({ cartFocusMode = false }) => {
                 <button
                   onClick={handleHoldSale}
                   disabled={holdLoading || items.length === 0}
-                  className={`w-6 h-6 rounded flex items-center justify-center transition-all text-xs ${items.length === 0
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-yellow-500 hover:bg-yellow-600 text-white"
+                  className={`h-8 rounded-md px-2.5 flex items-center justify-center gap-1.5 transition-all text-xs font-semibold ${items.length === 0
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
+                    : "bg-amber-500 hover:bg-amber-600 text-white shadow-sm"
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   title={items.length === 0 ? "Cart is empty" : "Hold Sale"}
                 >
-                  <FiPause className="w-3 h-3" />
+                  <FiPause className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Hold</span>
                 </button>
               )}
 
@@ -2612,10 +2637,11 @@ const CartSection = ({ cartFocusMode = false }) => {
                 <button
                   onClick={handleResumeCurrentHeldSale}
                   disabled={resumeLoading}
-                  className="w-6 h-6 rounded bg-green-500 text-white flex items-center justify-center transition-all hover:bg-green-600 text-xs disabled:opacity-50"
+                  className="h-8 rounded-md bg-green-600 px-2.5 text-white flex items-center justify-center gap-1.5 transition-all hover:bg-green-700 text-xs font-semibold disabled:opacity-50"
                   title="Resume Current Sale"
                 >
-                  <FiPlay className="w-3 h-3" />
+                  <FiPlay className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Resume</span>
                 </button>
               )}
             </>
@@ -2633,9 +2659,9 @@ const CartSection = ({ cartFocusMode = false }) => {
               }
             }}
             disabled={items.length === 0}
-            className={`w-6 h-6 rounded flex items-center justify-center transition-all text-xs ${items.length === 0
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-red-500 hover:bg-red-600 text-white"
+            className={`h-8 w-8 rounded-md flex items-center justify-center transition-all text-xs ${items.length === 0
+              ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
+              : "bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
               } disabled:opacity-50`}
             title={items.length === 0 ? "Cart is empty" : "Clear Cart"}
           >
