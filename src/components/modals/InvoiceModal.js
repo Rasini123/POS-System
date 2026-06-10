@@ -2744,21 +2744,53 @@ const InvoiceModal = () => {
     cartDiscount: propCartDiscount = 0,
     totalProductDiscount: propTotalProductDiscount = 0,
     splitPayment = null,
-    remainingMethods = null
+    remainingMethods = null,
+    invoiceData = null
   } = modalProps || {};
+
+  const getInvoiceDataValue = (keys) => {
+    if (!invoiceData) return null;
+    for (const key of keys) {
+      if (invoiceData[key] !== undefined && invoiceData[key] !== null) {
+        return parseFloat(invoiceData[key]);
+      }
+    }
+    if (invoiceData.ResultSet) {
+      if (Array.isArray(invoiceData.ResultSet) && invoiceData.ResultSet.length > 0) {
+        const res = invoiceData.ResultSet[0];
+        for (const key of keys) {
+          if (res && res[key] !== undefined && res[key] !== null) {
+            return parseFloat(res[key]);
+          }
+        }
+      } else {
+        for (const key of keys) {
+          if (invoiceData.ResultSet[key] !== undefined && invoiceData.ResultSet[key] !== null) {
+            return parseFloat(invoiceData.ResultSet[key]);
+          }
+        }
+      }
+    }
+    return null;
+  };
 
   const calculateAmounts = () => {
     const itemTotals = items.map(item => getItemTotal(item));
-    const subtotal = itemTotals.reduce((sum, total) => sum + total, 0);
+    const computedSubtotal = itemTotals.reduce((sum, total) => sum + total, 0);
 
     const totalProductDiscount = items.reduce(
       (sum, item) => sum + getItemDiscountAmount(item),
       0
     );
 
-    const additionalCartDiscount = cartDiscount || 0;
+    const backendDiscount = getInvoiceDataValue(['DiscountAmount', 'DiscountAmt', 'discount_amount', 'discount']);
+    const additionalCartDiscount = backendDiscount !== null ? backendDiscount : (propDiscount || cartDiscount || 0);
 
-    const total = subtotal - additionalCartDiscount;
+    const backendSubtotal = getInvoiceDataValue(['TotalAmount', 'TotalAmt', 'subtotal']);
+    const subtotal = backendSubtotal !== null ? backendSubtotal : computedSubtotal;
+
+    const backendTotal = getInvoiceDataValue(['NetAmount', 'NetAmt', 'total']);
+    const total = backendTotal !== null ? backendTotal : (propTotal || (subtotal - additionalCartDiscount));
 
     return {
       subtotal,
@@ -2976,8 +3008,7 @@ const InvoiceModal = () => {
 
         divider("-"),
         leftRight("Subtotal", "" + subtotal.toFixed(2)) + "\n",
-        leftRight("Product Discount", "(" + totalProductDiscount.toFixed(2) + ")") + "\n",
-        additionalCartDiscount > 0 ? leftRight("Additional Discount", "(" + additionalCartDiscount.toFixed(2) + ")") + "\n" : "",
+        additionalCartDiscount > 0 ? leftRight("Discount", "(" + additionalCartDiscount.toFixed(2) + ")") + "\n" : "",
         divider("="),
         esc + "!" + "\x38", // Double height and emphasized
         leftRight("TOTAL", "" + total.toFixed(2)) + "\n",
@@ -3303,16 +3334,9 @@ const InvoiceModal = () => {
         <span className="dark:text-white">{formatCurrency(subtotal)}</span>
       </div>
 
-      {currentTemplate.fields.showDiscountBreakdown && (
-        <div className="flex justify-between text-red-500 border-b pb-1 dark:border-gray-700">
-          <span>Product Discounts:</span>
-          <span>({formatCurrency(totalProductDiscount)})</span>
-        </div>
-      )}
-
       {additionalCartDiscount > 0 && (
-        <div className="flex justify-between text-red-500">
-          <span>Additional Discount:</span>
+        <div className="flex justify-between text-red-500 border-b pb-1 dark:border-gray-700">
+          <span>Discount:</span>
           <span>({formatCurrency(additionalCartDiscount)})</span>
         </div>
       )}
