@@ -113,9 +113,9 @@ const SettingsPage = () => {
 
 
     const defaultCompanyDetails = {
-        p_company_name: 'DCSICN CLUB',
-        p_phone_number: '070 - 731 4445',
-        p_address: 'No. 316/7, Thalangama North, Battaramulla.',
+        p_company_name: 'Rs Bathik Gallery',
+        p_phone_number: '0717517044',
+        p_address: 'No 286, moronthuduwa rd, melegama, wadduwa, Sri Lanka,12560',
         p_email: '',
         p_website: '',
         p_tax_number: '',

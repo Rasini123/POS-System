@@ -2227,11 +2227,11 @@ const CartSection = ({ cartFocusMode = false }) => {
     return (
       <div
         className={`flex flex-col p-4 rounded-xl h-full ${darkMode ? "bg-gray-800" : "bg-white"
-          } justify-start overflow-y-auto relative`}
+          } justify-center overflow-y-auto relative`}
       >
-        <div className="text-center py-6 text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700/50 w-full flex-shrink-0">
+        <div className="flex flex-col items-center justify-center flex-grow text-center py-6 text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700/50 w-full">
           <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-            <i className="fas fa-shopping-cart text-xl text-blue-500 opacity-70"></i>
+            <i className="fas fa-shopping-cart text-xl text-green-500 opacity-70"></i>
           </div>
           <p className="text-md font-semibold dark:text-white">Your cart is empty</p>
           <p className="text-xs mt-1">Add products to see them here</p>
@@ -2240,7 +2240,7 @@ const CartSection = ({ cartFocusMode = false }) => {
             {tabs.length < 5 && (
               <button
                 onClick={handleAddTab}
-                className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1"
+                className="px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1"
               >
                 <i className="fas fa-plus text-[10px]"></i> New Tab
               </button>
@@ -2868,9 +2868,9 @@ const CartSection = ({ cartFocusMode = false }) => {
               )}
             </div>
           ) : (
-            <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+            <div className="flex flex-col items-center justify-center h-full text-center py-6 text-gray-500 dark:text-gray-400">
               <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                <i className="fas fa-shopping-cart text-xl text-blue-500 opacity-70"></i>
+                <i className="fas fa-shopping-cart text-xl text-green-500 opacity-70"></i>
               </div>
               <p className="text-md font-semibold dark:text-white">Your cart is empty</p>
               <p className="text-xs mt-1">Add products to see them here</p>

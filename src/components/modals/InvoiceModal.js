@@ -2666,9 +2666,9 @@ const InvoiceModal = () => {
             ],
             selectedTemplate: 'retail',
             companyDetails: {
-              name: 'DCSICN CLUB',
-              phone: '070 - 731 4445',
-              address: 'No. 316/7, Thalangama North, Battaramulla.',
+              name: 'Rs Bathik Gallery',
+              phone: '0717517044',
+              address: 'No 286, moronthuduwa rd, melegama, wadduwa, Sri Lanka,12560',
               email: '',
               website: '',
               taxNumber: '',
@@ -2696,9 +2696,9 @@ const InvoiceModal = () => {
       setInvoiceSettings(prev => ({
         ...prev,
         companyDetails: {
-          name: apiData.p_company_name || 'DCSICN CLUB',
-          phone: apiData.p_phone_number || '070 - 731 4445',
-          address: apiData.p_address || 'No. 316/7, Thalangama North, Battaramulla.',
+          name: apiData.p_company_name || 'Rs Bathik Gallery',
+          phone: apiData.p_phone_number || '0717517044',
+          address: apiData.p_address || 'No 286, moronthuduwa rd, melegama, wadduwa, Sri Lanka,12560',
           email: apiData.p_email || '',
           website: apiData.p_website || '',
           taxNumber: apiData.p_tax_number || '',
@@ -2918,7 +2918,7 @@ const InvoiceModal = () => {
         // Print company logo if available
         ...(printableImage ? [
           esc + "a" + "\x01", // Center align
-          "[" + (companyDetails.name || "DCSICN CLUB") + " LOGO]\n",
+          "[" + (companyDetails.name || "Rs Bathik Gallery") + " LOGO]\n",
           esc + "a" + "\x00", // Left align
           "\n"
         ] : []),
@@ -2926,14 +2926,14 @@ const InvoiceModal = () => {
         // Company header
         esc + "!" + "\x38", // Select double height and emphasized printing
         esc + "a" + "\x01", // Center align
-        "★ " + (companyDetails.name || "DCSICN CLUB") + " ★\n",
+        "★ " + (companyDetails.name || "Rs Bathik Gallery") + " ★\n",
         esc + "!" + "\x00", // Cancel text formatting
         esc + "a" + "\x00", // Left align
 
         // Company details
         esc + "!" + "\x08", // Select emphasized printing
-        (companyDetails.phone || "070 - 731 4445") + "\n",
-        (companyDetails.address || "No. 316/7, Thalangama North, Battaramulla.") + "\n",
+        (companyDetails.phone || "0717517044") + "\n",
+        (companyDetails.address || "No 286, moronthuduwa rd, melegama, wadduwa, Sri Lanka,12560") + "\n",
         esc + "!" + "\x00", // Cancel text formatting
 
         divider("="),
@@ -3180,10 +3180,10 @@ const InvoiceModal = () => {
             />
           )}
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
-            ★ {companyDetails.name || 'DCSICN CLUB'} ★
+            ★ {companyDetails.name || 'Rs Bathik Gallery'} ★
           </h2>
-          <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">{companyDetails.phone || '070 - 731 4445'}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{companyDetails.address || 'No. 316/7, Thalangama North, Battaramulla.'}</p>
+          <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">{companyDetails.phone || '0717517044'}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{companyDetails.address || 'No 286, moronthuduwa rd, melegama, wadduwa, Sri Lanka,12560'}</p>
         </div>
       )}
 
@@ -3380,20 +3380,14 @@ const InvoiceModal = () => {
               {isOpeningDrawer ? "Opening..." : "Open Drawer"}
             </button> */}
 
-            {/* Print Button */}
-            <button
-              onClick={handlePrint}
-              disabled={isPrinting}
-              className="py-2 px-4 bg-green-500 text-white font-semibold rounded-lg shadow hover:bg-green-600 disabled:opacity-50"
-            >
-              {isPrinting ? "Printing..." : "Print"}
-            </button>
-
             <button
               onClick={handleClose}
-              className="py-2 px-4 bg-gray-500 text-white font-semibold rounded-lg shadow hover:bg-gray-600"
+              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="Close"
             >
-              Close
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
         </div>

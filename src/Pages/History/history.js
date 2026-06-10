@@ -43,12 +43,12 @@ const TransactionsHistory = () => {
       const list = Array.isArray(fetchedBills) ? fetchedBills : (fetchedBills?.Bills || fetchedBills?.ResultSet || []);
       const itemsList = Array.isArray(fetchedItems) ? fetchedItems : (fetchedItems?.ResultSet || fetchedItems || []);
 
-      const sorted = [...list].sort((a, b) => new Date(b.BillDate || b.CreateDate) - new Date(a.BillDate || a.CreateDate));
+      const sorted = [...list].sort((a, b) => new Date(b.CreateDate || b.BillDate) - new Date(a.CreateDate || a.BillDate));
       
       const formattedBills = sorted.map(b => ({
         pbd_bill_id: String(b.BillId || b.BillNo),
         pbd_bill_no: b.BillNo || String(b.BillId),
-        pbd_bill_date: b.BillDate || b.CreateDate,
+        pbd_bill_date: b.CreateDate || b.BillDate,
         pbd_total_amount: Number(b.TotalAmount || b.NetAmount || 0),
         pbd_discount_amount: Number(b.DiscountAmount || 0),
         pbd_net_amount: Number(b.NetAmount || b.TotalAmount || 0),
@@ -84,7 +84,7 @@ const TransactionsHistory = () => {
         const mappedBill = {
           pbd_bill_id: String(apiBill.BillId || apiBill.BillNo),
           pbd_bill_no: apiBill.BillNo || String(apiBill.BillId),
-          pbd_bill_date: apiBill.BillDate || apiBill.CreateDate,
+          pbd_bill_date: apiBill.CreateDate || apiBill.BillDate,
           pbd_total_amount: Number(apiBill.TotalAmount || apiBill.NetAmount || 0),
           pbd_discount_amount: Number(apiBill.DiscountAmount || 0),
           pbd_net_amount: Number(apiBill.NetAmount || apiBill.TotalAmount || 0),
@@ -116,7 +116,7 @@ const TransactionsHistory = () => {
         const mappedBill = {
           pbd_bill_id: String(apiBill.BillId || apiBill.BillNo),
           pbd_bill_no: apiBill.BillNo || String(apiBill.BillId),
-          pbd_bill_date: apiBill.BillDate || apiBill.CreateDate,
+          pbd_bill_date: apiBill.CreateDate || apiBill.BillDate,
           pbd_total_amount: Number(apiBill.TotalAmount || apiBill.NetAmount || 0),
           pbd_discount_amount: Number(apiBill.DiscountAmount || 0),
           pbd_net_amount: Number(apiBill.NetAmount || apiBill.TotalAmount || 0),

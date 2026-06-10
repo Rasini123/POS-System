@@ -951,7 +951,6 @@ const ProductManagement = () => {
                     <div>
                       <label className="block text-xs font-bold mb-1 uppercase tracking-wide">Price (LKR) *</label>
                       <div className="relative">
-                        <FiDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                           type="number"
                           step="0.01"
@@ -959,7 +958,7 @@ const ProductManagement = () => {
                           placeholder="Price"
                           value={currentProduct.ppd_price}
                           onChange={e => setCurrentProduct({ ...currentProduct, ppd_price: e.target.value })}
-                          className={`w-full pl-9 pr-4 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                          className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
                             darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
                           }`}
                         />

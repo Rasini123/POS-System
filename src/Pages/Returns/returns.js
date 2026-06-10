@@ -577,14 +577,13 @@ const ReturnsPage = () => {
                     <th className="px-5 py-4">Product</th>
                     <th className="px-5 py-4 text-center">Returned Qty</th>
                     <th className="px-5 py-4 text-right">Refund Amount</th>
-                    <th className="px-5 py-4">Return Date</th>
-                    <th className="px-5 py-4 text-center">Updated By</th>
+                    <th className="px-5 py-4 text-right">Return Date</th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
                   {loading ? (
                     <tr>
-                      <td colSpan="6" className="p-8 text-center text-gray-500">
+                      <td colSpan="5" className="p-8 text-center text-gray-500">
                         <div className="flex flex-col items-center justify-center space-y-3">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500"></div>
                           <p>Loading return logs...</p>
@@ -593,7 +592,7 @@ const ReturnsPage = () => {
                     </tr>
                   ) : returnRecords.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="p-12 text-center text-gray-500">
+                      <td colSpan="5" className="p-12 text-center text-gray-500">
                         <FiInfo className="w-10 h-10 mx-auto mb-2 opacity-40 text-gray-400" />
                         No return records found in the database.
                       </td>
@@ -613,12 +612,9 @@ const ReturnsPage = () => {
                       <td className="px-5 py-3.5 whitespace-nowrap text-sm font-bold text-right text-rose-600 dark:text-rose-400">
                         {fmtLKR(getRefundAmount(rec))}
                       </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-xs">
+                      <td className="px-5 py-3.5 whitespace-nowrap text-xs text-right">
                         <div className="font-semibold">{new Date(rec.ReturnDate).toLocaleDateString()}</div>
-                        <div className="opacity-55 flex items-center gap-0.5 mt-0.5"><FiClock /> {new Date(rec.ReturnDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                      </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-center font-semibold text-xs opacity-75">
-                        User {rec.UpdatedBy || 1}
+                        <div className="opacity-55 flex items-center justify-end gap-0.5 mt-0.5"><FiClock /> {new Date(rec.ReturnDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                       </td>
                     </tr>
                   ))}
