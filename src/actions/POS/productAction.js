@@ -1,10 +1,5 @@
 import * as actionTypes from '../../constants/POS/productConstants';
 import { productService } from '../../services/POS/ProductService';
-import { 
-  dbGetProducts, 
-  dbGetCategories, 
-  dbGetSubcategories 
-} from '../../utils/mockDb';
 
 const getCategoryIcon = (categoryName) => {
   const iconMap = {
@@ -101,30 +96,11 @@ const loadProductsFromApiAndLocal = async () => {
     apiProducts = [];
   }
 
-  const localProducts = dbGetProducts();
-
   if (!apiProducts || apiProducts.length === 0) {
-    return localProducts.filter(p => toActiveFlag(p.ppd_is_active) === 'A');
+    return [];  // No fallback to mockDb
   }
 
-  const mergedProducts = [...apiProducts];
-  const seenKeys = new Set();
-
-  apiProducts.forEach(product => {
-    productIdentityKeys(product).forEach(key => seenKeys.add(key));
-  });
-
-  localProducts.forEach(product => {
-    const keys = productIdentityKeys(product);
-    const alreadyExists = keys.some(key => seenKeys.has(key));
-
-    if (!alreadyExists) {
-      mergedProducts.push(product);
-      keys.forEach(key => seenKeys.add(key));
-    }
-  });
-
-  return mergedProducts.filter(product => (
+  return apiProducts.filter(product => (
     toActiveFlag(pickFirst(product.ppd_is_active, product.IsActive, product.isActive, product.is_active)) === 'A'
   ));
 };
@@ -156,10 +132,10 @@ export const fetchCategories = () => async (dispatch) => {
       if (apiCategories && apiCategories.length > 0) {
         categoriesData = apiCategories.map(normalizeCategory);
       } else {
-        categoriesData = dbGetCategories().filter(c => c.pcd_is_active === 'A');
+        categoriesData = [];  // No fallback to mockDb
       }
     } catch (err) {
-      categoriesData = dbGetCategories().filter(c => c.pcd_is_active === 'A');
+      categoriesData = [];  // No fallback to mockDb
     }
 
     const formattedCategories = categoriesData
@@ -201,14 +177,10 @@ export const fetchSubcategories = (mainId) => async (dispatch) => {
       if (apiSubcategories && apiSubcategories.length > 0) {
         subcategoriesData = apiSubcategories.map(normalizeSubcategory);
       } else {
-        subcategoriesData = dbGetSubcategories().filter(
-          s => s.psd_category_id === parseInt(mainId) && s.psd_is_active === 'A'
-        );
+        subcategoriesData = [];  // No fallback to mockDb
       }
     } catch (err) {
-      subcategoriesData = dbGetSubcategories().filter(
-        s => s.psd_category_id === parseInt(mainId) && s.psd_is_active === 'A'
-      );
+      subcategoriesData = [];  // No fallback to mockDb
     }
 
     const formattedSubcategories = subcategoriesData

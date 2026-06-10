@@ -573,7 +573,7 @@ const ReturnsPage = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className={`text-xs font-bold uppercase opacity-75 ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                    <th className="px-5 py-4">Bill No</th>
+                    <th className="px-5 py-4">Bill ID</th>
                     <th className="px-5 py-4">Product</th>
                     <th className="px-5 py-4 text-center">Returned Qty</th>
                     <th className="px-5 py-4 text-right">Refund Amount</th>
@@ -601,7 +601,7 @@ const ReturnsPage = () => {
                   ) : returnRecords.map((rec) => (
                     <tr key={`${rec.BillItemId || rec.ProductId}-${rec.ReturnDate || rec.ReturnedQty}`} className={`${darkMode ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50'}`}>
                       <td className="px-5 py-3.5 whitespace-nowrap text-sm font-bold text-blue-600 dark:text-blue-400">
-                        {rec.BillNo || `Bill ${rec.BillId}`}
+                        {rec.BillId}
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="font-bold text-sm">{rec.ProductName || `Product ${rec.ProductId}`}</div>
