@@ -336,7 +336,8 @@ const CashCalcModal = () => {
             paymentMethod: 'split',
             splitPayment: true,
             methods: allMethods,
-            invoiceData
+            invoiceData,
+            autoPrint: true
           }));
 
           // Clear cart if tabId exists
@@ -365,7 +366,8 @@ const CashCalcModal = () => {
             paidAmount: numericCash,
             changeAmount: balance,
             paymentMethod: 'cash',
-            invoiceData
+            invoiceData,
+            autoPrint: true
           }));
 
           // Clear cart if tabId exists

@@ -647,6 +647,7 @@ const PaymentModal = () => {
         setInvoiceData(invoiceData);
 
         dispatch(closeModal());
+
         dispatch(openModal('INVOICE', {
           items,
           subtotal,
@@ -665,10 +666,10 @@ const PaymentModal = () => {
             total,
           changeAmount: 0,
           tabId,
-          invoiceData
+          invoiceData,
+          autoPrint: true
         }));
 
-         
         if (tabId) {
           dispatch(clearCart(tabId));
         }

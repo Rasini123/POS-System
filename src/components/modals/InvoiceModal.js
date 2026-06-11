@@ -2631,7 +2631,11 @@ const InvoiceModal = () => {
   const [isPrinting, setIsPrinting] = useState(false);
   const [isOpeningDrawer, setIsOpeningDrawer] = useState(false);
   const [printableImage, setPrintableImage] = useState(null);
+  const [autoPrintDone, setAutoPrintDone] = useState(false);
+  const [printStatus, setPrintStatus] = useState(null); // null | 'printing' | 'success' | 'error'
+  const [printErrorMsg, setPrintErrorMsg] = useState('');
   const barcodeInputRef = useRef(null);
+  const handlePrintRef = useRef(null);
 
   const apiImageUrl = invoiceDetails?.ResultSet?.[0]?.IMAGEURL;
   const { imageData: authenticatedLogo } = useAuthenticatedImage(apiImageUrl);
@@ -3022,12 +3026,18 @@ const InvoiceModal = () => {
 
       handleClose();
     } catch (err) {
-
+      setPrintStatus('error');
+      setPrintErrorMsg(err.message);
       alert("Print error: " + err.message);
+      throw err;
     } finally {
       setIsPrinting(false);
     }
   };
+
+  // Store handlePrint in ref so the auto-print useEffect can call it
+  // without needing it as a dependency (avoids infinite loops)
+  handlePrintRef.current = handlePrint;
 
   // NEW: Function to render split payment lines for printing
   const renderSplitPaymentPrintLines = () => {
@@ -3090,6 +3100,31 @@ const InvoiceModal = () => {
       setInvoiceNumber(newInvoiceNumber);
     }
   }, []);
+
+  // Auto-print when modal opens if autoPrint flag is set in modalProps
+  useEffect(() => {
+    const autoPrint = modalProps?.autoPrint;
+    if (autoPrint && invoiceNumber && !autoPrintDone && !isPrinting) {
+      setAutoPrintDone(true);
+      setPrintStatus('printing');
+      // Small delay to let the component fully render before printing
+      const timer = setTimeout(() => {
+        if (handlePrintRef.current) {
+          handlePrintRef.current()
+            .then(() => {
+              setPrintStatus('success');
+              setTimeout(() => setPrintStatus(null), 2000);
+            })
+            .catch((err) => {
+              setPrintStatus('error');
+              setPrintErrorMsg(err?.message || 'Unknown error');
+            });
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalProps, invoiceNumber]);
 
   const formatInvoiceNumber = (invNum) => {
     if (!invNum) return "";
@@ -3345,6 +3380,7 @@ const InvoiceModal = () => {
   );
 
   return (
+    <>
     <Modal size="lg">
       <div
         className={`p-6 rounded-xl shadow-lg ${darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"
@@ -3437,7 +3473,66 @@ const InvoiceModal = () => {
         )}
 
       </div>
-    </Modal>
+
+        {/* Print Status Overlay */}
+        {printStatus === 'printing' && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[200]">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 min-w-[280px]">
+              <div className="relative flex items-center justify-center w-16 h-16">
+                <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 absolute"></div>
+                <svg className="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 9H3v9a2 2 0 002 2h14a2 2 0 002-2V9h-4" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-gray-800 dark:text-white">Printing Bill...</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Sending to printer, please wait</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {printStatus === 'success' && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[200]">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 min-w-[280px]">
+              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                <svg className="w-9 h-9 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-green-700 dark:text-green-400">Bill Printed!</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Receipt sent to printer successfully</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {printStatus === 'error' && (
+          <div className="fixed bottom-6 right-6 bg-red-600 text-white rounded-xl shadow-2xl p-4 z-[200] flex items-start gap-3 max-w-xs">
+            <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p className="font-semibold text-sm">Print Failed</p>
+              <p className="text-xs text-red-200 mt-0.5">{printErrorMsg || 'Could not connect to printer'}</p>
+              <button
+                onClick={() => { setPrintStatus(null); handlePrint(); }}
+                className="mt-2 text-xs bg-white text-red-600 font-semibold px-3 py-1 rounded-lg hover:bg-red-50 transition-colors"
+              >
+                Retry Print
+              </button>
+            </div>
+            <button onClick={() => setPrintStatus(null)} className="ml-auto text-red-200 hover:text-white">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </Modal>
+    </>
   );
 };
 
