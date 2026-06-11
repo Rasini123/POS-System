@@ -1,2 +1,1 @@
-//export const API_URL = 'http://localhost:51324';
-export const API_URL = 'https://testrcc.dockyardsoftware.com';
+export const API_URL = process.env.REACT_APP_API_URL || 'https://testrcc.dockyardsoftware.com';

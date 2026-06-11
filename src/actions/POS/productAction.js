@@ -1,9 +1,5 @@
 import * as actionTypes from '../../constants/POS/productConstants';
-import { 
-  dbGetProducts, 
-  dbGetCategories, 
-  dbGetSubcategories 
-} from '../../utils/mockDb';
+import { productService } from '../../services/POS/ProductService';
 
 const getCategoryIcon = (categoryName) => {
   const iconMap = {
@@ -18,34 +14,102 @@ const getCategoryIcon = (categoryName) => {
   return iconMap[lowerName] || 'fas fa-box';
 };
 
+const pickFirst = (...values) => values.find(value => value !== undefined && value !== null && value !== '');
+
+const toActiveFlag = (value) => {
+  if (value === undefined || value === null || value === '') return 'A';
+  if (value === true || value === 'true' || value === 'A' || value === '1' || value === 1) return 'A';
+  return 'I';
+};
+
+const normalizeCategory = (category) => ({
+  pcd_category_id: pickFirst(category.pcd_category_id, category.CategoryId, category.categoryId, category.category_id),
+  pcd_category_name: pickFirst(category.pcd_category_name, category.CategoryName, category.categoryName, category.category_name),
+  pcd_is_active: toActiveFlag(pickFirst(category.pcd_is_active, category.IsActive, category.isActive, category.is_active))
+});
+
+const normalizeSubcategory = (subcategory) => ({
+  psd_subcategory_id: pickFirst(subcategory.psd_subcategory_id, subcategory.SubCategoryId, subcategory.subCategoryId, subcategory.subcategoryId, subcategory.sub_category_id),
+  psd_category_id: pickFirst(subcategory.psd_category_id, subcategory.CategoryId, subcategory.categoryId, subcategory.category_id),
+  psd_subcategory_name: pickFirst(subcategory.psd_subcategory_name, subcategory.SubCategoryName, subcategory.subCategoryName, subcategory.subcategoryName, subcategory.sub_category_name),
+  psd_is_active: toActiveFlag(pickFirst(subcategory.psd_is_active, subcategory.IsActive, subcategory.isActive, subcategory.is_active))
+});
+
+const getProductImageUrl = (product) => {
+  const rawImg = pickFirst(
+    product.ImageUrl,
+    product.imageUrl,
+    product.ppd_product_image,
+    product.ProductImage,
+    product.productImage,
+    product.product_image
+  );
+  
+  if (rawImg && (rawImg.startsWith('blob:') || rawImg.startsWith('data:'))) return rawImg;
+  if (rawImg && rawImg.includes('svg+xml')) return rawImg;
+  if (rawImg && rawImg.startsWith('http')) return rawImg;
+  
+  return '';
+};
+
+const normalizeProduct = (product) => {
+  const id = pickFirst(product.ppd_product_id, product.ProductId, product.productId, product.product_id);
+  const price = parseFloat(pickFirst(product.ppd_price, product.Price, product.price, 0)) || 0;
+
+  return {
+    id,
+    productId: id,
+    name: pickFirst(product.ppd_product_name, product.ProductName, product.productName, product.product_name, ''),
+    price,
+    discountType: null,
+    discountValue: 0,
+    discountedPrice: price,
+    markedPrice: price,
+    category: pickFirst(product.ppd_category_id, product.CategoryId, product.categoryId, product.category_id),
+    subCategory: pickFirst(product.ppd_subcategory_id, product.SubCategoryId, product.subCategoryId, product.subcategoryId, product.sub_category_id),
+    stock: 9999,
+    sku: pickFirst(product.ppd_product_code, product.ProductCode, product.productCode, product.product_code, ''),
+    barcode: pickFirst(product.ppd_barcode, product.BarCode, product.Barcode, product.barCode, product.barcode, product.ppd_product_code, product.ProductCode, ''),
+    image: getProductImageUrl(product),
+    Whcode: 'WH-01',
+    hasMultipleBatches: false,
+    totalBatches: 1,
+    allBatches: [],
+    originalProduct: product
+  };
+};
+
+const productIdentityKeys = (product) => {
+  const id = pickFirst(product.ppd_product_id, product.ProductId, product.productId, product.product_id);
+  const sku = pickFirst(product.ppd_product_code, product.ProductCode, product.productCode, product.product_code);
+  const barcode = pickFirst(product.ppd_barcode, product.BarCode, product.Barcode, product.barCode, product.barcode);
+
+  return [id && `id:${id}`, sku && `sku:${sku}`, barcode && `barcode:${barcode}`].filter(Boolean).map(String);
+};
+
+const loadProductsFromApiAndLocal = async () => {
+  let apiProducts = [];
+
+  try {
+    apiProducts = await productService.getAllProducts();
+  } catch (err) {
+    apiProducts = [];
+  }
+
+  if (!apiProducts || apiProducts.length === 0) {
+    return [];  // No fallback to mockDb
+  }
+
+  return apiProducts.filter(product => (
+    toActiveFlag(pickFirst(product.ppd_is_active, product.IsActive, product.isActive, product.is_active)) === 'A'
+  ));
+};
+
 export const fetchProducts = () => async (dispatch) => {
   dispatch({ type: actionTypes.FETCH_PRODUCTS_REQUEST });
   try {
-    const products = dbGetProducts().filter(p => p.ppd_is_active === 'A');
-    
-    const formattedProducts = products.map((product) => {
-      return {
-        id: product.ppd_product_id, 
-        productId: product.ppd_product_id,
-        name: product.ppd_product_name,
-        price: parseFloat(product.ppd_price) || 0,
-        discountType: null,
-        discountValue: 0,
-        discountedPrice: parseFloat(product.ppd_price) || 0,
-        markedPrice: parseFloat(product.ppd_price) || 0,
-        category: product.ppd_category_id,
-        subCategory: product.ppd_subcategory_id,
-        stock: 9999, // Infinite stock since inventory is disabled
-        sku: product.ppd_product_code,
-        barcode: product.ppd_barcode || product.ppd_product_code,
-        image: product.ppd_product_image || '',
-        Whcode: 'WH-01',
-        hasMultipleBatches: false,
-        totalBatches: 1,
-        allBatches: [],
-        originalProduct: product
-      };
-    });
+    const products = await loadProductsFromApiAndLocal();
+    const formattedProducts = products.map(normalizeProduct);
 
     dispatch({
       type: actionTypes.FETCH_PRODUCTS_SUCCESS,
@@ -62,13 +126,28 @@ export const fetchProducts = () => async (dispatch) => {
 export const fetchCategories = () => async (dispatch) => {
   dispatch({ type: actionTypes.FETCH_CATEGORIES_REQUEST });
   try {
-    const categories = dbGetCategories().filter(c => c.pcd_is_active === 'A');
-    const formattedCategories = categories.map(cat => ({
-      id: cat.pcd_category_id,
-      label: cat.pcd_category_name,
-      icon: getCategoryIcon(cat.pcd_category_name),
-      subcategories: []
-    }));
+    let categoriesData = [];
+    try {
+      const apiCategories = await productService.getAllCategories();
+      if (apiCategories && apiCategories.length > 0) {
+        categoriesData = apiCategories.map(normalizeCategory);
+      } else {
+        categoriesData = [];  // No fallback to mockDb
+      }
+    } catch (err) {
+      categoriesData = [];  // No fallback to mockDb
+    }
+
+    const formattedCategories = categoriesData
+      .map(normalizeCategory)
+      .filter(c => c.pcd_is_active === 'A' && c.pcd_category_id && c.pcd_category_name)
+      .map(cat => ({
+        id: cat.pcd_category_id,
+        label: cat.pcd_category_name,
+        icon: getCategoryIcon(cat.pcd_category_name),
+        subcategories: []
+      }));
+    
     formattedCategories.unshift({
       id: 'all',
       icon: 'fas fa-boxes',
@@ -92,13 +171,26 @@ export const fetchSubcategories = (mainId) => async (dispatch) => {
   if (mainId === 'all') return;
   dispatch({ type: actionTypes.FETCH_SUBCATEGORIES_REQUEST });
   try {
-    const subcategories = dbGetSubcategories().filter(
-      s => s.psd_category_id === parseInt(mainId) && s.psd_is_active === 'A'
-    );
-    const formattedSubcategories = subcategories.map(sub => ({
-      id: sub.psd_subcategory_id,
-      label: sub.psd_subcategory_name
-    }));
+    let subcategoriesData = [];
+    try {
+      const apiSubcategories = await productService.getSubcategoriesByMainId(mainId);
+      if (apiSubcategories && apiSubcategories.length > 0) {
+        subcategoriesData = apiSubcategories.map(normalizeSubcategory);
+      } else {
+        subcategoriesData = [];  // No fallback to mockDb
+      }
+    } catch (err) {
+      subcategoriesData = [];  // No fallback to mockDb
+    }
+
+    const formattedSubcategories = subcategoriesData
+      .map(normalizeSubcategory)
+      .filter(s => String(s.psd_category_id) === String(mainId) && s.psd_is_active === 'A' && s.psd_subcategory_id && s.psd_subcategory_name)
+      .map(sub => ({
+        id: sub.psd_subcategory_id,
+        label: sub.psd_subcategory_name
+      }));
+    
     dispatch({
       type: actionTypes.FETCH_SUBCATEGORIES_SUCCESS,
       payload: { mainId, subcategories: formattedSubcategories }
@@ -113,32 +205,10 @@ export const fetchSubcategories = (mainId) => async (dispatch) => {
 
 export const fetchProductsBySubcategory = (subId) => async (dispatch) => {
   try {
-    const products = dbGetProducts().filter(
-      p => p.ppd_subcategory_id === parseInt(subId) && p.ppd_is_active === 'A'
-    );
-    const formattedProducts = products.map((product) => {
-      return {
-        id: product.ppd_product_id,
-        productId: product.ppd_product_id,
-        name: product.ppd_product_name,
-        price: parseFloat(product.ppd_price) || 0,
-        discountType: null,
-        discountValue: 0,
-        discountedPrice: parseFloat(product.ppd_price) || 0,
-        markedPrice: parseFloat(product.ppd_price) || 0,
-        category: product.ppd_category_id,
-        subCategory: product.ppd_subcategory_id,
-        stock: 9999,
-        sku: product.ppd_product_code,
-        barcode: product.ppd_barcode || product.ppd_product_code,
-        image: product.ppd_product_image || '',
-        Whcode: 'WH-01',
-        hasMultipleBatches: false,
-        totalBatches: 1,
-        allBatches: [],
-        originalProduct: product
-      };
-    });
+    const products = await loadProductsFromApiAndLocal();
+    const formattedProducts = products
+      .map(normalizeProduct)
+      .filter(product => String(product.subCategory) === String(subId));
     
     dispatch({
       type: actionTypes.SET_PRODUCTS,

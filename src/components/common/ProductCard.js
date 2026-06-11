@@ -141,6 +141,26 @@ const ProductCard = ({ product, darkMode, onAddToCart }) => {
   const activeTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
   const { items } = activeTab;
 
+  const [imageSrc, setImageSrc] = React.useState(product.image);
+
+  React.useEffect(() => {
+    setImageSrc(product.image);
+  }, [product.image]);
+
+  const handleImageError = () => {
+    if (imageSrc && imageSrc.includes('/Products/ServeImage?fileName=')) {
+      if (imageSrc.endsWith('.jpeg')) {
+        setImageSrc(imageSrc.replace('.jpeg', '.jpg'));
+      } else if (imageSrc.endsWith('.jpg')) {
+        setImageSrc(imageSrc.replace('.jpg', '.png'));
+      } else {
+        setImageSrc(null);
+      }
+    } else {
+      setImageSrc(null);
+    }
+  };
+
   const handleAddToCart = (e) => {
     e.stopPropagation();
     if (product.stock <= 0) {
@@ -185,6 +205,15 @@ const ProductCard = ({ product, darkMode, onAddToCart }) => {
         availableQuantity <= 0 ? 'opacity-50 cursor-not-allowed' : ''
       }`}
     >
+      {imageSrc && (
+        <img
+          src={imageSrc}
+          className="hidden"
+          onError={handleImageError}
+          alt=""
+        />
+      )}
+
       {/* Batch indicator for multi-batch products */}
       {product.hasMultipleBatches && product.totalBatches > 1 && (
         <div className="absolute top-1 md:top-2 left-1 md:left-2 bg-blue-500 text-white text-xs px-1 md:px-2 py-0.5 md:py-1 rounded-full font-semibold z-10">
@@ -216,15 +245,15 @@ const ProductCard = ({ product, darkMode, onAddToCart }) => {
       <div
         className="w-12 h-12 md:w-16 md:h-16 rounded-lg flex items-center justify-center text-white text-sm md:text-lg shadow-md mb-1 md:mb-2 bg-cover bg-center"
         style={{
-          backgroundImage: product.image ? `url(${product.image})` : 'linear-gradient(145deg, #388E3C, #4CAF50)',
-          backgroundColor: product.image ? 'transparent' : '',
+          backgroundImage: imageSrc ? `url(${imageSrc})` : 'linear-gradient(145deg, #388E3C, #4CAF50)',
+          backgroundColor: imageSrc ? 'transparent' : '',
         }}
       >
-        {!product.image && <i className={getProductIcon(product.category)}></i>}
+        {!imageSrc && <i className={getProductIcon(product.category)}></i>}
       </div>
       
-      <div className={`font-semibold text-xs mb-1 ${darkMode ? 'text-white' : 'text-gray-800'} h-8 md:h-10 flex items-center justify-center px-1`}>
-        {product.name.length > 20 ? `${product.name.substring(0, 20)}...` : product.name}
+      <div className={`font-semibold text-xs mb-0 ${darkMode ? 'text-white' : 'text-gray-800'} h-7 md:h-9 flex items-end justify-center px-1 pb-0.5`}>
+        <span className="text-center">{product.name.length > 20 ? `${product.name.substring(0, 20)}...` : product.name}</span>
       </div>
       
       {/* Price Display with Discount */}
@@ -245,17 +274,8 @@ const ProductCard = ({ product, darkMode, onAddToCart }) => {
         )}
       </div>
       
-      {/* Enhanced Stock Display */}
-      <div className={`text-xs ${
-        availableQuantity <= 0 ? 'text-red-500 font-semibold' :
-        availableQuantity < 5 ? 'text-yellow-500 font-semibold' :
-        darkMode ? 'text-gray-400' : 'text-gray-500'
-      }`}>
-        {availableQuantity <= 0 ? 'Out of Stock' :
-         currentCartQuantity > 0 ? `Stock: ${availableQuantity} left` :
-         `Stock: ${product.stock}`}
-      </div>
 
+ 
       {/* Show "Click to select batch" for multi-batch products */}
       {product.hasMultipleBatches && product.totalBatches > 1 && (
         <div className="text-[10px] text-blue-500 dark:text-blue-400 font-medium mt-0.5">

@@ -2127,6 +2127,64 @@ const CartSection = ({ cartFocusMode = false }) => {
     dispatch(openModal("DISCOUNT"));
   };
 
+  const renderHeldSalesInline = () => {
+    if (!hasHeldSales) return null;
+    return (
+      <div className="w-full mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50">
+        <div className="flex items-center justify-between mb-2 px-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
+            <i className="fas fa-clock text-xs text-amber-500"></i> Held Bills ({heldSales.length})
+          </span>
+          <button
+            onClick={openResumeModal}
+            className="text-[10px] text-blue-500 hover:text-blue-600 hover:underline font-semibold"
+          >
+            Manage All
+          </button>
+        </div>
+        <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 hide-scrollbar">
+          {heldSales.map((sale) => (
+            <div
+              key={sale.saleId}
+              className={`p-2.5 rounded-lg border text-left transition-all duration-200 hover:shadow-sm ${
+                darkMode
+                  ? "border-gray-700/60 bg-gray-800/40 hover:bg-gray-800 hover:border-gray-600"
+                  : "border-gray-200 bg-gray-50/50 hover:bg-gray-100 hover:border-gray-300"
+              }`}
+            >
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex-grow min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-xs text-gray-800 dark:text-gray-200 truncate">
+                      {sale.tabName || "Held Sale"}
+                    </span>
+                    <span className="text-[9px] px-1 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 rounded font-medium">
+                      Rs. {formatCurrency(sale.items.reduce((sum, item) => sum + ((item.discountedPrice || item.price) * item.quantity), 0))}
+                    </span>
+                  </div>
+                  <p className="text-[9px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                    ID: {sale.saleId.replace("SALE-", "")} • {new Date(sale.heldAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleResumeSale(sale.saleId)}
+                  disabled={resumeLoading}
+                  className="flex-shrink-0 px-2 py-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                >
+                  <i className="fas fa-play text-[8px]"></i>
+                  Resume
+                </button>
+              </div>
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 truncate border-t border-dashed border-gray-200 dark:border-gray-700 pt-1">
+                {sale.items.map((item) => `${item.quantity}x ${item.name}`).join(", ")}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const handleProductDiscount = (itemId) => {
     dispatch(openModal("PRODUCT_DISCOUNT", { itemId }));
   };
@@ -2156,8 +2214,8 @@ const CartSection = ({ cartFocusMode = false }) => {
         subtotal,
         discount: discount,
         totalProductDiscount,
-        totalProductDiscount,
         total,
+        tabId: activeTabId,
         onPaymentComplete: () => {
           clearDisplay();
         }
@@ -2168,33 +2226,30 @@ const CartSection = ({ cartFocusMode = false }) => {
   if (items.length === 0 && tabs.length === 1 && !isHeld && !cartFocusMode) {
     return (
       <div
-        className={`flex flex-col p-3 rounded-xl h-full ${darkMode ? "bg-gray-800" : "bg-white"
-          } justify-center items-center relative`}
+        className={`flex flex-col p-4 rounded-xl h-full ${darkMode ? "bg-gray-800" : "bg-white"
+          } justify-center overflow-y-auto relative`}
       >
-        <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-          <i className="fas fa-shopping-cart text-3xl mb-2 opacity-50"></i>
-          <p className="text-md font-medium">Your cart is empty</p>
+        <div className="flex flex-col items-center justify-center flex-grow text-center py-6 text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700/50 w-full">
+          <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+            <i className="fas fa-shopping-cart text-xl text-green-500 opacity-70"></i>
+          </div>
+          <p className="text-md font-semibold dark:text-white">Your cart is empty</p>
           <p className="text-xs mt-1">Add products to see them here</p>
 
           <div className="flex gap-2 mt-3 justify-center">
-            {hasHeldSales && (
-              <button
-                onClick={openResumeModal}
-                className="px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded text-sm hover:shadow transition-all"
-              >
-                <i className="fas fa-play mr-1"></i> Resume Sale
-              </button>
-            )}
             {tabs.length < 5 && (
               <button
                 onClick={handleAddTab}
-                className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded text-sm hover:shadow transition-all"
+                className="px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1"
               >
-                <i className="fas fa-plus mr-1"></i> New Tab
+                <i className="fas fa-plus text-[10px]"></i> New Tab
               </button>
             )}
           </div>
         </div>
+
+        {/* Inline Held Sales List */}
+        {renderHeldSalesInline()}
 
         {/* FIXED: Held Sales Modal - MOVED OUTSIDE MAIN RETURN */}
         {showHeldSalesModal && (
@@ -2573,54 +2628,75 @@ const CartSection = ({ cartFocusMode = false }) => {
         </div>
       </div>
 
-      {/* Header Section - Compact */}
-      <div className="flex justify-between items-center mb-2 pb-1 border-b dark:border-gray-700">
-        <h2 className="text-md font-bold text-green-600 dark:text-green-400">
-          Cart {isHeld && <span className="text-yellow-500 text-xs">(Held)</span>}
-        </h2>
-        <div className="flex gap-1">
+      {/* Header Section */}
+      <div className="flex justify-between items-start gap-3 mb-3 pb-3 border-b dark:border-gray-700">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              Cart
+            </h2>
+            {isHeld && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                <FiPause className="h-3 w-3" />
+                Held
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            {items.length} item{items.length !== 1 ? "s" : ""} in this sale
+            {hasHeldSales && ` • ${heldSales.length} held`}
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-1.5">
           {/* Hold/Resume buttons */}
           {isFirstTab && (
             <>
-              {/* Show Resume button if current tab is held OR there are held sales */}
-              {(isHeld || hasHeldSales) ? (
-                <div className="flex gap-1">
-                  {/* Resume current sale button if current tab is held */}
-                  {isHeld && saleId && (
-                    <button
-                      onClick={handleResumeCurrentHeldSale}
-                      disabled={resumeLoading}
-                      className="w-6 h-6 rounded bg-green-500 text-white flex items-center justify-center transition-all hover:bg-green-600 text-xs disabled:opacity-50"
-                      title="Resume Current Sale"
-                    >
-                      <FiPlay className="w-3 h-3" />
-                    </button>
-                  )}
-
-                  {/* Resume modal button for other held sales */}
-                  {hasHeldSales && (
-                    <button
-                      onClick={openResumeModal}
-                      disabled={resumeLoading}
-                      className="w-6 h-6 rounded bg-blue-500 text-white flex items-center justify-center transition-all hover:bg-blue-600 text-xs disabled:opacity-50"
-                      title="Resume Held Sale"
-                    >
-                      <i className="fas fa-list"></i>
-                    </button>
-                  )}
-                </div>
-              ) : (
-                /* Hold button when no held sales and cart has items */
+              {/* Button to view held sales (always visible) */}
+              <button
+                onClick={openResumeModal}
+                disabled={resumeLoading}
+                className={`h-8 rounded-md px-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  darkMode
+                    ? "bg-gray-700 text-gray-100 hover:bg-gray-600"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+                title="View Held Sales"
+              >
+                <i className="fas fa-clock"></i>
+                <span className="hidden sm:inline">Held</span>
+                {hasHeldSales && (
+                  <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] leading-none text-white">
+                    {heldSales.length}
+                  </span>
+                )}
+              </button>
+              
+              {/* Hold Sale Button (visible if current sale is not held) */}
+              {!isHeld && (
                 <button
                   onClick={handleHoldSale}
                   disabled={holdLoading || items.length === 0}
-                  className={`w-6 h-6 rounded flex items-center justify-center transition-all text-xs ${items.length === 0
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-yellow-500 hover:bg-yellow-600 text-white"
+                  className={`h-8 rounded-md px-2.5 flex items-center justify-center gap-1.5 transition-all text-xs font-semibold ${items.length === 0
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
+                    : "bg-amber-500 hover:bg-amber-600 text-white shadow-sm"
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   title={items.length === 0 ? "Cart is empty" : "Hold Sale"}
                 >
-                  <FiPause className="w-3 h-3" />
+                  <FiPause className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Hold</span>
+                </button>
+              )}
+
+              {/* Resume current sale button if current tab is held */}
+              {isHeld && saleId && (
+                <button
+                  onClick={handleResumeCurrentHeldSale}
+                  disabled={resumeLoading}
+                  className="h-8 rounded-md bg-green-600 px-2.5 text-white flex items-center justify-center gap-1.5 transition-all hover:bg-green-700 text-xs font-semibold disabled:opacity-50"
+                  title="Resume Current Sale"
+                >
+                  <FiPlay className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Resume</span>
                 </button>
               )}
             </>
@@ -2638,9 +2714,9 @@ const CartSection = ({ cartFocusMode = false }) => {
               }
             }}
             disabled={items.length === 0}
-            className={`w-6 h-6 rounded flex items-center justify-center transition-all text-xs ${items.length === 0
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-red-500 hover:bg-red-600 text-white"
+            className={`h-8 w-8 rounded-md flex items-center justify-center transition-all text-xs ${items.length === 0
+              ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
+              : "bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
               } disabled:opacity-50`}
             title={items.length === 0 ? "Cart is empty" : "Clear Cart"}
           >
@@ -2792,23 +2868,15 @@ const CartSection = ({ cartFocusMode = false }) => {
               )}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              <i className="fas fa-shopping-cart text-3xl mb-2 opacity-50"></i>
-              <p className="text-sm font-medium">Your cart is empty</p>
+            <div className="flex flex-col items-center justify-center h-full text-center py-6 text-gray-500 dark:text-gray-400">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <i className="fas fa-shopping-cart text-xl text-green-500 opacity-70"></i>
+              </div>
+              <p className="text-md font-semibold dark:text-white">Your cart is empty</p>
               <p className="text-xs mt-1">Add products to see them here</p>
 
-              {/* Show resume options in empty cart if there are held sales */}
-              {hasHeldSales && (
-                <div className="mt-3">
-                  <button
-                    onClick={openResumeModal}
-                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded text-sm hover:shadow transition-all"
-                  >
-                    <i className="fas fa-play mr-2"></i>
-                    Resume Held Sale
-                  </button>
-                </div>
-              )}
+              {/* Inline Held Sales List */}
+              {renderHeldSalesInline()}
             </div>
           )
         ) : (
@@ -2894,17 +2962,7 @@ const CartSection = ({ cartFocusMode = false }) => {
                             </div>
                           )}
 
-                          {/* Stock Information */}
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <span
-                              className={`text-xs font-medium ${item.stock < 5
-                                ? "text-yellow-500 dark:text-yellow-400"
-                                : "text-blue-500 dark:text-blue-400"
-                                }`}
-                            >
-                              Stock: {item.stock}
-                            </span>
-                          </div>
+
                         </div>
                       </div>
 
@@ -3055,7 +3113,7 @@ const CartSection = ({ cartFocusMode = false }) => {
       </div>
 
       {/* Custom CSS for touch optimization */}
-      <style jsx>{`
+      <style>{`
         .hide-scrollbar {
           -ms-overflow-style: none;
           scrollbar-width: none;

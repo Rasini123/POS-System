@@ -432,12 +432,7 @@ const cartReducer = (state = initialState, action) => {
       return {
         ...state,
         holdLoading: false,
-        holdError: null,
-        tabs: state.tabs.map(tab =>
-          tab.id === state.activeTabId
-            ? { ...tab, isHeld: true, items: [] }
-            : tab
-        )
+        holdError: null
       };
 
     case HOLD_SALE_FAILURE:

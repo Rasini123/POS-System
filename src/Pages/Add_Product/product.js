@@ -4,11 +4,7 @@ import {
   FiPlus, FiSearch, FiEdit3, FiEye, FiTrash2, FiTag, FiFolder, 
   FiFolderPlus, FiImage, FiGrid, FiDollarSign, FiHash, FiCheckCircle, FiX 
 } from 'react-icons/fi';
-import { 
-  dbGetProducts, dbSaveProduct, dbToggleProductStatus, 
-  dbGetCategories, dbSaveCategory, dbToggleCategoryStatus,
-  dbGetSubcategories, dbSaveSubcategory, dbToggleSubcatStatus 
-} from '../../utils/mockDb';
+import { API_URL } from '../../config';
 import { productService } from '../../services/POS/ProductService';
 
 const ProductManagement = () => {
@@ -54,7 +50,52 @@ const ProductManagement = () => {
 
   // Load all lists
   const refreshAllData = async () => {
-    setProducts(dbGetProducts());
+    try {
+      let apiProducts = [];
+      let apiCategories = [];
+      let apiSubcategories = [];
+      
+      // Try to fetch from API
+      try {
+        const response = await productService.getAllProducts();
+        if (response && Array.isArray(response) && response.length > 0) {
+          apiProducts = response;
+        }
+      } catch (err) {
+        console.warn('Failed to fetch products from API:', err.message);
+      }
+
+      // Map API products to state format
+      const mapped = apiProducts.map(p => ({
+        ppd_product_id: p.ProductId || p.ppd_product_id,
+        ppd_product_code: p.ProductCode || p.ppd_product_code,
+        ppd_barcode: p.BarCode || p.Barcode || p.ppd_barcode,
+        ppd_product_name: p.ProductName || p.ppd_product_name,
+        ppd_category_id: parseInt(p.CategoryId || p.ppd_category_id),
+        ppd_subcategory_id: (p.SubCategoryId || p.ppd_subcategory_id) ? parseInt(p.SubCategoryId || p.ppd_subcategory_id) : null,
+        ppd_price: parseFloat(p.Price || p.ppd_price) || 0,
+        ppd_product_image: (() => {
+          const rawImg = p.ImageUrl || p.imageUrl || p.ProductImage || p.ppd_product_image || '';
+          const productId = p.ProductId || p.ppd_product_id;
+          
+          if (rawImg && (rawImg.startsWith('blob:') || rawImg.startsWith('data:'))) {
+            return rawImg;
+          }
+          if (rawImg && rawImg.includes('svg+xml')) {
+            return rawImg;
+          }
+          if (rawImg && rawImg.startsWith('http')) {
+            return rawImg;
+          }
+          return '';
+        })(),
+        ppd_is_active: p.IsActive || p.ppd_is_active || 'A',
+      }));
+      setProducts(mapped);
+    } catch (err) {
+      console.error('Error loading products:', err);
+      setProducts([]);
+    }
     
     // Load categories from API, fallback to mockDb
     try {
@@ -67,10 +108,11 @@ const ProductManagement = () => {
         }));
         setCategories(mapped);
       } else {
-        setCategories(dbGetCategories());
+        setCategories([]);
       }
     } catch {
-      setCategories(dbGetCategories());
+      console.warn('Failed to fetch categories from API');
+      setCategories([]);
     }
 
     // Load subcategories from API, fallback to mockDb
@@ -85,10 +127,11 @@ const ProductManagement = () => {
         }));
         setSubcategories(mapped);
       } else {
-        setSubcategories(dbGetSubcategories());
+        setSubcategories([]);
       }
     } catch {
-      setSubcategories(dbGetSubcategories());
+      console.warn('Failed to fetch subcategories from API');
+      setSubcategories([]);
     }
   };
 
@@ -101,7 +144,7 @@ const ProductManagement = () => {
     setTimeout(() => setAlert({ show: false, message: '', type: 'success' }), 4000);
   };
 
-  // Image upload base64 converter
+  // Image upload - keep file object for API, use preview URL for display
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -109,16 +152,19 @@ const ProductManagement = () => {
         triggerAlert('Image size should be less than 2MB', 'error');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCurrentProduct(prev => ({ ...prev, ppd_product_image: reader.result }));
-      };
-      reader.readAsDataURL(file);
+      // Store the file object in a temporary property for API upload
+      // Store the preview URL separately for display
+      const previewUrl = URL.createObjectURL(file);
+      setCurrentProduct(prev => ({
+        ...prev,
+        ppd_product_image: previewUrl, // For preview display
+        _imageFile: file // Temporary file object for API
+      }));
     }
   };
 
   // Save Product
-  const handleSaveProduct = (e) => {
+  const handleSaveProduct = async (e) => {
     e.preventDefault();
     const { ppd_product_code, ppd_barcode, ppd_product_name, ppd_category_id, ppd_price } = currentProduct;
     
@@ -128,18 +174,57 @@ const ProductManagement = () => {
     }
 
     try {
-      dbSaveProduct({
+      const payload = {
         ...currentProduct,
         ppd_category_id: parseInt(currentProduct.ppd_category_id),
         ppd_subcategory_id: currentProduct.ppd_subcategory_id ? parseInt(currentProduct.ppd_subcategory_id) : null,
         ppd_price: parseFloat(ppd_price),
-        ppd_is_active: currentProduct.ppd_is_active || 'A'
-      });
-      triggerAlert(currentProduct.ppd_product_id ? 'Product updated successfully' : 'Product added successfully');
-      setIsProdModalOpen(false);
-      refreshAllData();
+        ppd_is_active: currentProduct.ppd_is_active || 'A',
+        _imageFile: currentProduct._imageFile || null // Include file object if available
+      };
+
+      let success = false;
+      let isNew = !currentProduct.ppd_product_id;
+      
+      try {
+        if (currentProduct.ppd_product_id) {
+          const response = await productService.updateProduct(payload);
+          if (response.StatusCode === 200) {
+            triggerAlert('Product updated successfully!');
+            success = true;
+          } else {
+            triggerAlert(response.Result || 'Product updated!');
+            success = true;
+          }
+        } else {
+          const response = await productService.addProduct(payload);
+          if (response.StatusCode === 200) {
+            triggerAlert('Product added successfully!');
+            success = true;
+          } else {
+            triggerAlert(response.Result || 'Product added!');
+            success = true;
+          }
+        }
+      } catch (apiErr) {
+        console.error('API Error:', apiErr);
+        triggerAlert('Error saving product to API', 'error');
+        success = false;
+      }
+
+      if (success) {
+        setIsProdModalOpen(false);
+        // Clean up object URL if it was created
+        if (currentProduct._imageFile && currentProduct.ppd_product_image?.startsWith('blob:')) {
+          URL.revokeObjectURL(currentProduct.ppd_product_image);
+        }
+        // Refresh all data from API/DB
+        // This will get the latest products and avoid duplicates
+        await refreshAllData();
+      }
     } catch (err) {
       triggerAlert('Error saving product', 'error');
+      console.error('Product save error:', err);
     }
   };
 
@@ -244,10 +329,32 @@ const ProductManagement = () => {
   };
 
   // Toggle Statuses
-  const toggleProdStatus = (id) => {
-    dbToggleProductStatus(id);
-    refreshAllData();
-    triggerAlert('Product status toggled');
+  const toggleProdStatus = async (id) => {
+    try {
+      const prod = products.find(p => p.ppd_product_id === id);
+      if (!prod) return;
+      
+      let response;
+      if (prod.ppd_is_active === 'A') {
+        response = await productService.deleteProduct(id);
+        if (response.StatusCode === 200) {
+          triggerAlert('Product deactivated successfully!');
+        } else {
+          triggerAlert(response.Result || 'Product deactivated!');
+        }
+      } else {
+        response = await productService.restoreProduct(id);
+        if (response.StatusCode === 200) {
+          triggerAlert('Product reactivated successfully!');
+        } else {
+          triggerAlert(response.Result || 'Product reactivated!');
+        }
+      }
+      await refreshAllData();
+    } catch (err) {
+      console.error(err);
+      triggerAlert('Failed to update product status on API', 'error');
+    }
   };
 
   const toggleCatStatus = async (id) => {
@@ -263,9 +370,8 @@ const ProductManagement = () => {
       }
       await refreshAllData();
     } catch (err) {
-      dbToggleCategoryStatus(id);
-      await refreshAllData();
-      triggerAlert('Category status updated (offline mode)');
+      console.error(err);
+      triggerAlert('Failed to update category status on API', 'error');
     }
   };
 
@@ -287,27 +393,71 @@ const ProductManagement = () => {
       }
       await refreshAllData();
     } catch (err) {
-      dbToggleSubcatStatus(id);
-      await refreshAllData();
-      triggerAlert('Subcategory status updated (offline mode)');
+      console.error(err);
+      triggerAlert('Failed to update subcategory status on API', 'error');
     }
   };
 
   // Filtering
   const filteredProducts = products.filter(p => {
-    const matchSearch = p.ppd_product_name.toLowerCase().includes(prodSearch.toLowerCase()) ||
+    const matchSearch = String(p.ppd_product_id) === prodSearch.trim() ||
+                        p.ppd_product_name.toLowerCase().includes(prodSearch.toLowerCase()) ||
                         p.ppd_product_code.toLowerCase().includes(prodSearch.toLowerCase()) ||
-                        p.ppd_barcode.includes(prodSearch);
+                        p.ppd_barcode.toLowerCase().includes(prodSearch.toLowerCase());
     const matchCat = selectedCatFilter === 'all' || p.ppd_category_id === parseInt(selectedCatFilter);
     return matchSearch && matchCat;
   });
 
   const getCategoryName = (id) => {
-    return categories.find(c => c.pcd_category_id === id)?.pcd_category_name || 'N/A';
+    return categories.find(c => String(c.pcd_category_id) === String(id))?.pcd_category_name || 'N/A';
   };
 
   const getSubcategoryName = (id) => {
-    return subcategories.find(s => s.psd_subcategory_id === id)?.psd_subcategory_name || 'None';
+    return subcategories.find(s => String(s.psd_subcategory_id) === String(id))?.psd_subcategory_name || 'None';
+  };
+
+  const handleApiSearch = async () => {
+    if (!prodSearch.trim()) {
+      triggerAlert('Please enter a product ID, code, barcode, or name to search', 'error');
+      return;
+    }
+    const query = prodSearch.trim().toLowerCase();
+    
+    // Find matching product locally
+    const match = products.find(p => 
+      String(p.ppd_product_id) === query ||
+      p.ppd_product_name.toLowerCase() === query ||
+      p.ppd_product_code.toLowerCase() === query ||
+      p.ppd_barcode.toLowerCase() === query
+    );
+
+    if (match) {
+      try {
+        const apiProductRaw = await productService.getProductById(match.ppd_product_id);
+        if (apiProductRaw) {
+           const updatedProduct = {
+             ...match,
+             ppd_product_name: apiProductRaw.ProductName || match.ppd_product_name,
+             ppd_price: parseFloat(apiProductRaw.Price || match.ppd_price),
+             ppd_product_code: apiProductRaw.ProductCode || match.ppd_product_code,
+             ppd_barcode: apiProductRaw.BarCode || match.ppd_barcode,
+             ppd_category_id: apiProductRaw.CategoryId ? parseInt(apiProductRaw.CategoryId) : match.ppd_category_id,
+             ppd_subcategory_id: apiProductRaw.SubCategoryId ? parseInt(apiProductRaw.SubCategoryId) : match.ppd_subcategory_id,
+             ppd_product_image: apiProductRaw.ImageUrl || apiProductRaw.imageUrl || apiProductRaw.ProductImage || match.ppd_product_image,
+             ppd_is_active: apiProductRaw.IsActive || match.ppd_is_active
+           };
+           setProducts(products.map(p => p.ppd_product_id === match.ppd_product_id ? updatedProduct : p));
+           triggerAlert('Product data refreshed from API');
+        } else {
+           triggerAlert('Product not found via API', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        triggerAlert('Error connecting to API', 'error');
+      }
+    } else {
+      triggerAlert(`No products found matching "${prodSearch}" in the system.`, 'error');
+    }
   };
 
   return (
@@ -369,17 +519,26 @@ const ProductManagement = () => {
         <div className="flex-grow flex flex-col overflow-hidden">
           {/* Action Bar */}
           <div className="flex flex-col md:flex-row gap-3 mb-6">
-            <div className="relative flex-grow">
-              <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search by code, barcode, or product name..."
-                value={prodSearch}
-                onChange={(e) => setProdSearch(e.target.value)}
-                className={`w-full pl-11 pr-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all ${
-                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
-                }`}
-              />
+            <div className="relative flex-grow flex shadow-sm rounded-xl">
+              <div className="relative flex-grow">
+                <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
+                <input
+                  type="text"
+                  placeholder="Search by code, barcode, or product name..."
+                  value={prodSearch}
+                  onChange={(e) => setProdSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleApiSearch(); }}
+                  className={`w-full pl-11 pr-4 py-2.5 rounded-l-xl border border-r-0 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all ${
+                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                  }`}
+                />
+              </div>
+              <button
+                onClick={handleApiSearch}
+                className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-r-xl font-bold transition-all border border-teal-600 shadow-sm"
+              >
+                Search
+              </button>
             </div>
             
             <div className="flex gap-2">
@@ -410,6 +569,7 @@ const ProductManagement = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className={`sticky top-0 z-10 ${darkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-gray-50 border-b border-gray-200'}`}>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">ID</th>
                   <th className="px-6 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Image</th>
                   <th className="px-6 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Code/Barcode</th>
                   <th className="px-6 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Product Name</th>
@@ -422,10 +582,47 @@ const ProductManagement = () => {
               <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
                 {filteredProducts.map((prod) => (
                   <tr key={prod.ppd_product_id} className={`transition-colors ${darkMode ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50'}`}>
+                    <td className="px-6 py-3 whitespace-nowrap text-sm font-bold opacity-60">
+                      {prod.ppd_product_id}
+                    </td>
                     <td className="px-6 py-3 whitespace-nowrap">
                       <div className="w-12 h-12 rounded-xl overflow-hidden shadow border border-gray-200 dark:border-gray-700 bg-gray-100 flex items-center justify-center">
                         {prod.ppd_product_image ? (
-                          <img src={prod.ppd_product_image} alt={prod.ppd_product_name} className="w-full h-full object-cover" />
+                          <img
+                            src={prod.ppd_product_image}
+                            alt={prod.ppd_product_name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const src = e.target.src;
+                              if (!src || !src.includes('imageName=')) return;
+                              
+                              const retryCount = parseInt(e.target.dataset.retryCount || '0', 10);
+                              const extensions = ['.jpeg', '.jpg', '.png', '.webp', '.gif'];
+                              
+                              // Only retry a maximum of 3 times
+                              if (retryCount >= extensions.length) {
+                                e.target.style.display = 'none';
+                                return;
+                              }
+                              
+                              try {
+                                const url = new URL(src);
+                                const imageName = url.searchParams.get('imageName');
+                                
+                                if (imageName) {
+                                  // Remove any existing extension from imageName
+                                  const baseImageName = imageName.replace(/\.\w+$/, '');
+                                  const newExt = extensions[retryCount];
+                                  e.target.src = `${API_URL}/Products/ServeImage?fileName=${baseImageName}${newExt}`;
+                                  e.target.dataset.retryCount = (retryCount + 1).toString();
+                                } else {
+                                  e.target.style.display = 'none';
+                                }
+                              } catch (err) {
+                                e.target.style.display = 'none';
+                              }
+                            }}
+                          />
                         ) : (
                           <FiImage className="w-6 h-6 text-gray-400" />
                         )}
@@ -661,7 +858,67 @@ const ProductManagement = () => {
                   <div className="sm:col-span-1 flex flex-col items-center justify-center">
                     <div className="w-28 h-28 rounded-2xl overflow-hidden border border-dashed border-gray-300 dark:border-gray-650 bg-gray-50 dark:bg-gray-850 flex items-center justify-center relative group">
                       {currentProduct.ppd_product_image ? (
-                        <img src={currentProduct.ppd_product_image} alt="Preview" className="w-full h-full object-cover" />
+                        <>
+                          <img
+                            src={currentProduct.ppd_product_image}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const src = e.target.src;
+                              if (!src || !src.includes('imageName=')) return;
+                              
+                              const retryCount = parseInt(e.target.dataset.retryCount || '0', 10);
+                              const extensions = ['.jpeg', '.jpg', '.png', '.webp', '.gif'];
+                              
+                              // Only retry a maximum of 3 times
+                              if (retryCount >= extensions.length) {
+                                e.target.style.display = 'none';
+                                return;
+                              }
+                              
+                              try {
+                                const url = new URL(src);
+                                const imageName = url.searchParams.get('imageName');
+                                
+                                if (imageName) {
+                                  // Remove any existing extension from imageName
+                                  const baseImageName = imageName.replace(/\.\w+$/, '');
+                                  const newExt = extensions[retryCount];
+                                  e.target.src = `${API_URL}/Products/ServeImage?fileName=${baseImageName}${newExt}`;
+                                  e.target.dataset.retryCount = (retryCount + 1).toString();
+                                } else {
+                                  e.target.style.display = 'none';
+                                }
+                              } catch (err) {
+                                e.target.style.display = 'none';
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (currentProduct.ppd_product_id) {
+                                try {
+                                  await productService.deleteProductImage(currentProduct.ppd_product_id);
+                                  triggerAlert("Product image permanently deleted.");
+                                } catch (err) {
+                                  console.error(err);
+                                  triggerAlert("Failed to delete image on API", "error");
+                                }
+                              }
+                              setCurrentProduct(prev => ({
+                                ...prev,
+                                ppd_product_image: "",
+                                _imageFile: null
+                              }));
+                            }}
+                            className="absolute top-1 right-1 p-1 bg-red-600 hover:bg-red-750 text-white rounded-full transition-colors opacity-0 group-hover:opacity-100 shadow-lg z-20"
+                            title="Delete Image"
+                          >
+                            <FiX className="w-3.5 h-3.5" />
+                          </button>
+                        </>
                       ) : (
                         <div className="text-center p-2">
                           <FiImage className="w-8 h-8 text-gray-400 mx-auto mb-1" />
@@ -694,7 +951,6 @@ const ProductManagement = () => {
                     <div>
                       <label className="block text-xs font-bold mb-1 uppercase tracking-wide">Price (LKR) *</label>
                       <div className="relative">
-                        <FiDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                           type="number"
                           step="0.01"
@@ -702,7 +958,7 @@ const ProductManagement = () => {
                           placeholder="Price"
                           value={currentProduct.ppd_price}
                           onChange={e => setCurrentProduct({ ...currentProduct, ppd_price: e.target.value })}
-                          className={`w-full pl-9 pr-4 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                          className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
                             darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
                           }`}
                         />
@@ -769,7 +1025,7 @@ const ProductManagement = () => {
                     >
                       <option value="">None / Select Subcategory</option>
                       {subcategories
-                        .filter(s => s.psd_category_id === parseInt(currentProduct.ppd_category_id))
+                        .filter(s => String(s.psd_category_id) === String(currentProduct.ppd_category_id))
                         .map(s => (
                           <option key={s.psd_subcategory_id} value={s.psd_subcategory_id}>{s.psd_subcategory_name}</option>
                         ))}

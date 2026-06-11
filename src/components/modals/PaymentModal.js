@@ -472,10 +472,10 @@ const PaymentModal = () => {
   const subtotal = modalProps?.subtotal || 0;
   const discount = modalProps?.discount || 0;
   const tax = modalProps?.tax || 0;
-  const total = modalProps?.total ;
+  const total = Number(modalProps?.total || 0);
   const tabId = modalProps?.tabId;
 
-  const [selectedMethods, setSelectedMethods] = useState([]);
+  const [selectedMethods, setSelectedMethods] = useState(['cash']);
   const [splitPayment, setSplitPayment] = useState(false);
   const [splitAmounts, setSplitAmounts] = useState({});
   const [processing, setProcessing] = useState(false);
@@ -489,6 +489,12 @@ const PaymentModal = () => {
     { id: 'paypal', icon: <FiBox className="w-5 h-5" />, label: 'PayPal' },
     { id: 'mobile', icon: <FiSmartphone className="w-5 h-5" />, label: 'Mobile Pay' }
   ];
+
+  useEffect(() => {
+    setSelectedMethods(['cash']);
+    setSplitPayment(false);
+    setSplitAmounts({});
+  }, [tabId, total]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-LK', {

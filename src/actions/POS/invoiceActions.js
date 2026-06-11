@@ -105,8 +105,9 @@ export const addInvoice = (invoiceData) => async (dispatch) => {
 
     const response = await invoiceService.addInvoice(invoiceData);
 
-    if (response.ResultSet && response.ResultSet.INVOICE_NO) {
-      localStorage.setItem("invoiceNumber", response.ResultSet.INVOICE_NO.toString());
+    const invoiceNumber = response.ResultSet?.INVOICE_NO || response.ResultSet?.BillNo;
+    if (invoiceNumber) {
+      localStorage.setItem("invoiceNumber", invoiceNumber.toString());
     }
 
     dispatch({

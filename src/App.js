@@ -18,12 +18,10 @@ import AddProductModal from "./components/modals/AddProductModal";
 import DiscountModal from "./components/modals/DiscountModal";
 import { LOGIN_SUCCESS } from "./constants/authConstants";
 import { openModal, closeModal } from "./actions/modalActions";
-import { initDb } from './utils/mockDb';
 
 function AppInitializer() {
   const dispatch = useDispatch();
   React.useEffect(() => {
-    initDb();
     const user = localStorage.getItem("user");
     const token = localStorage.getItem("token");
     if (user && token) {

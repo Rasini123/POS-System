@@ -832,7 +832,6 @@ export const holdSale = () => async (dispatch, getState) => {
     let saleId = activeTab.saleId || cartService.getSaleId();
      
     if (!saleId) {
-
       await dispatch(syncCartWithServer());
        
       const updatedState = getState();
@@ -845,14 +844,24 @@ export const holdSale = () => async (dispatch, getState) => {
     }
 
     const sessionId = cartService.getSessionId(products.allProducts);
-    
 
-     
-    await cartService.holdSale(sessionId, saleId);
+    // Send items to Hold API (cartService forwards to holdService)
+    const holdResult = await cartService.holdSale(sessionId, saleId, items);
      
     const heldSaleId = saleId;
-     
-    cartService.addToHeldSales(heldSaleId, items, activeTab.name);
+    
+    // Also persist to localStorage for offline/hybrid support
+    const heldSale = cartService.addToHeldSales(heldSaleId, items, activeTab.name);
+    
+    // Store the API session ID on the held sale for later resume
+    if (holdResult.sessionId) {
+      const heldSales = cartService.getHeldSales();
+      const idx = heldSales.findIndex(s => s.saleId === heldSaleId);
+      if (idx !== -1) {
+        heldSales[idx].holdSessionId = holdResult.sessionId;
+        localStorage.setItem('heldSales', JSON.stringify(heldSales));
+      }
+    }
      
     cartService.clearSaleId();
     dispatch(clearSaleId());
@@ -883,71 +892,32 @@ export const resumeSale = (saleId) => async (dispatch, getState) => {
     
     const sessionId = cartService.getSessionId(products.allProducts);
     
+    const heldSales = cartService.getHeldSales();
+    const heldSale = heldSales.find(sale => sale.saleId === saleId);
     
-    const holdListResponse = await cartService.getHoldList(sessionId, saleId);
-    
-    if (!holdListResponse.ResultSet || holdListResponse.ResultSet.length === 0) {
+    if (!heldSale || !heldSale.items || heldSale.items.length === 0) {
       throw new Error('No held items found for this sale');
     }
 
-    await cartService.resumeSale(sessionId, saleId);
+    // Release the hold on the API side if we have a hold session ID
+    if (heldSale.holdSessionId) {
+      try {
+        const { holdService } = await import('../../services/POS/holdService');
+        await holdService.releaseHold(heldSale.holdSessionId);
+      } catch (releaseErr) {
+        console.warn("Failed to release hold via API (continuing with local resume):", releaseErr);
+      }
+    } else {
+      // Try the legacy resume path
+      await cartService.resumeSale(sessionId, saleId);
+    }
     
     dispatch(clearCart());
     
     cartService.setSaleId(saleId);
     dispatch(setSaleId(saleId));
     
-    const heldItems = holdListResponse.ResultSet;
-     
-    const productMap = new Map();
-    
-    heldItems.forEach(item => {
-      const productCode = item.Cart_Procode;
-      const batchId = item.Cart_BatchId ;
-      const uniqueId = `${productCode}_B${batchId}`;
-      const quantity = parseFloat(item.Cart_Qty);
-      const price = parseFloat(item.Cart_UnitPrice);
-      
-      if (productMap.has(uniqueId)) {
-        const existing = productMap.get(uniqueId);
-        productMap.set(uniqueId, {
-          ...existing,
-          quantity: existing.quantity + quantity
-        });
-      } else {
-        const productDetails = products.allProducts.find(p => 
-          (p.productId === productCode || p.id === productCode) && 
-          (p.batchId === batchId || !p.batchId)
-        );
-        
-        if (productDetails) {
-
-          const matchingBatch = productDetails.allBatches?.find(
-    b => b.batchId === batchId
-  );
-
-  const batchStock = matchingBatch ? parseFloat(matchingBatch.stock) || 0 : 0;
-            
-          productMap.set(uniqueId, {
-            id: uniqueId,
-            productId: productCode,
-            batchId: batchId,
-            name: productDetails.name,
-            price: price,
-            quantity: quantity,
-            stock: batchStock,
-            image: productDetails.image,
-            discountType: productDetails.discountType,
-            discountValue: productDetails.discountValue,
-            Whcode: productDetails.Whcode,
-            isBatchProduct: productDetails.isBatchProduct
-          });
-        }
-      }
-    });
-    
-    
-    productMap.forEach(item => {
+    heldSale.items.forEach(item => {
       for (let i = 0; i < item.quantity; i++) {
         dispatch({
           type: ADD_TO_CART,
@@ -959,17 +929,13 @@ export const resumeSale = (saleId) => async (dispatch, getState) => {
       }
     });
     
-    cartService.removeFromHeldSales(saleId);
+    dispatch(renameTab(getState().cart.activeTabId, `Resumed: ${heldSale.tabName}`));
     
-    const heldSales = cartService.getHeldSales();
-    const heldSale = heldSales.find(sale => sale.saleId === saleId);
-    if (heldSale) {
-      dispatch(renameTab(getState().cart.activeTabId, `Resumed: ${heldSale.tabName}`));
-    }
+    cartService.removeFromHeldSales(saleId);
     
     dispatch({ 
       type: RESUME_SALE_SUCCESS,
-      payload: { saleId, items: Array.from(productMap.values()) }
+      payload: { saleId, items: heldSale.items }
     });
     
     return { success: true, saleId };  
