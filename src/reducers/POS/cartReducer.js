@@ -621,8 +621,13 @@ const cartReducer = (state = initialState, action) => {
     case REMOVE_TAB:
       if (state.tabs.length <= 1) return state;
 
+      const tabIndexToRemove = state.tabs.findIndex(tab => tab.id === action.payload);
+      if (tabIndexToRemove === -1) return state;
+
       const filteredTabs = state.tabs.filter(tab => tab.id !== action.payload);
-      const newActiveTabId = filteredTabs[0].id;
+      const newActiveTabId = state.activeTabId === action.payload
+        ? filteredTabs[Math.min(tabIndexToRemove, filteredTabs.length - 1)].id
+        : state.activeTabId;
 
       return {
         ...state,

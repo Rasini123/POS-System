@@ -2223,7 +2223,9 @@ const CartSection = ({ cartFocusMode = false }) => {
     );
   };
 
-  if (items.length === 0 && tabs.length === 1 && !isHeld && !cartFocusMode) {
+  const useStandaloneEmptyCartView = false;
+
+  if (useStandaloneEmptyCartView && items.length === 0 && tabs.length === 1 && !isHeld && !cartFocusMode) {
     return (
       <div
         className={`flex flex-col p-4 rounded-xl h-full ${darkMode ? "bg-gray-800" : "bg-white"
@@ -2578,39 +2580,91 @@ const CartSection = ({ cartFocusMode = false }) => {
       )}
 
       {/* Modern Tab Navigation - Compact */}
-      <div className="mb-0">
-        <div className="flex items-center gap-1 mb-1 overflow-x-auto pb-1 hide-scrollbar">
+      <div className="mb-2">
+        <div
+          className={`flex items-center gap-1.5 overflow-x-auto rounded-lg p-1 hide-scrollbar ${
+            darkMode ? "bg-gray-800/70" : "bg-gray-50"
+          }`}
+        >
           {tabs.map((tab, index) => (
             <div
               key={tab.id}
-              className={`flex items-center rounded-md px-8 py-1 cursor-pointer transition-all flex-shrink-0 text-xs ${tab.id === activeTabId
+              role="tab"
+              tabIndex={0}
+              aria-selected={tab.id === activeTabId}
+              className={`group flex min-w-[126px] max-w-[170px] flex-shrink-0 items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-all ${tab.id === activeTabId
                 ? darkMode
-                  ? "bg-gray-700 text-white"
-                  : "bg-blue-100 text-blue-800"
+                  ? "border-green-500/60 bg-green-900/30 text-white shadow-sm"
+                  : "border-green-200 bg-white text-green-800 shadow-sm ring-1 ring-green-100"
                 : darkMode
-                  ? "bg-gray-600 text-gray-300 hover:bg-gray-500"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                } ${tab.isHeld ? "border border-yellow-400" : ""}`}
+                  ? "border-gray-700 bg-gray-700/70 text-gray-300 hover:border-gray-600 hover:bg-gray-700"
+                  : "border-transparent bg-gray-100 text-gray-600 hover:bg-white hover:text-gray-800 hover:shadow-sm"
+                } ${tab.isHeld ? "border-amber-400" : ""}`}
               onClick={() => handleSwitchTab(tab.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleSwitchTab(tab.id);
+                }
+              }}
+              title={tab.name || `Current Sale ${index + 1}`}
             >
-              <span className="truncate max-w-22">
-                {tab.name || `Current Sale ${index + 1}`}
-                {tab.isHeld && <span className="text-yellow-500 ml-1">●</span>}
+              <span className="flex min-w-0 items-center gap-1.5">
+                <i
+                  className={`fas fa-receipt text-[11px] ${tab.id === activeTabId
+                    ? "text-green-500"
+                    : darkMode
+                      ? "text-gray-400"
+                      : "text-gray-400"
+                    }`}
+                ></i>
+                <span className="truncate">
+                  {tab.name || `Current Sale ${index + 1}`}
+                </span>
+                {tab.isHeld && (
+                  <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400"></span>
+                )}
               </span>
 
               {tabs.length > 1 && (
                 <button
+                  type="button"
+                  aria-label={`Close ${tab.name || `Current Sale ${index + 1}`}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRemoveTab(tab.id);
                   }}
-                  className="ml-0.5 hover:text-red-500 opacity-70 hover:opacity-100 transition-opacity"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleRemoveTab(tab.id);
+                    }
+                  }}
+                  className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full opacity-70 transition-all hover:bg-red-100 hover:text-red-600 hover:opacity-100 ${darkMode ? "hover:bg-red-900/40 hover:text-red-300" : ""
+                    }`}
                 >
                   <i className="fas fa-times text-xs"></i>
                 </button>
               )}
             </div>
           ))}
+
+          {tabs.length < 2 && (
+            <button
+              type="button"
+              onClick={handleAddTab}
+              className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border text-xs transition-all ${
+                darkMode
+                  ? "border-gray-700 bg-gray-700/70 text-gray-300 hover:border-green-500/60 hover:bg-green-900/30 hover:text-green-300"
+                  : "border-transparent bg-gray-100 text-gray-600 hover:bg-white hover:text-green-700 hover:shadow-sm"
+              }`}
+              title="New Tab"
+              aria-label="New Tab"
+            >
+              <i className="fas fa-plus"></i>
+            </button>
+          )}
 
           {/* {tabs.length < 5 && (
             <button
