@@ -35,8 +35,6 @@ export const login = (P_UNAME, P_PWORD) => async (dispatch) => {
         user
       }
     });
- 
-    window.location.reload();
 
   } catch (error) {
     dispatch({

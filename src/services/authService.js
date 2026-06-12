@@ -18,7 +18,7 @@ export const authService = {
           Result: {
             UserID: data.ResultSet.UserId,
             LogId: Math.floor(Math.random() * 100000), // kept if needed by other components
-            UserType: data.ResultSet.RoleName === 'Admin' ? 'A' : 'C'
+            UserType: data.ResultSet.RoleName?.toLowerCase() === 'admin' ? 'A' : 'C'
           }
         };
       } else {
