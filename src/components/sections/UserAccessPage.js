@@ -28,7 +28,12 @@ const UserAccessPage = () => {
     try {
       const response = await getUsersList();
       if (response && response.ResultSet) {
-        setUsers(response.ResultSet);
+        // Normalize RoleName to strictly be "Admin" or "Cashier"
+        const normalizedUsers = response.ResultSet.map(u => ({
+          ...u,
+          RoleName: u.RoleName?.toLowerCase() === 'admin' ? 'Admin' : 'Cashier'
+        }));
+        setUsers(normalizedUsers);
       }
     } catch (error) {
       console.error("Failed to load users:", error);
