@@ -263,9 +263,11 @@
 
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { toast } from 'react-toastify';
 import { closeModal } from '../../actions/modalActions';
 import { openModal } from '../../actions/modalActions';
 import { clearCart } from '../../actions/POS/cartActions';
+import silentPrintService from '../../services/POS/silentPrintService';
 import { addInvoice } from '../../actions/POS/invoiceActions';
 import Modal from '../common/Modal';
 
@@ -291,99 +293,33 @@ const CashCalcModal = () => {
     return value.replace(/[^\d.]/g, '');
   };
 
-  const printBrowserReceipt = (props, paidAmount, changeAmount, paymentType, billNo, methods) => {
-    const printWindow = window.open('', '_blank', 'width=350,height=600');
-    if (!printWindow) return;
-
-    const items = props?.items || [];
-    
-    const itemsHtml = items.map(item => `
-      <tr>
-        <td style="padding: 4px 0; font-size: 13px;">
-          ${item.name || item.productName || 'Item'}<br/>
-          <span style="font-size:11px; color:#555;">${item.quantity || item.qty || 1} x LKR ${parseFloat(item.price || item.unitPrice || 0).toFixed(2)}</span>
-        </td>
-        <td style="text-align: right; vertical-align: top; padding: 4px 0; font-size: 13px;">
-          LKR ${(parseFloat(item.price || item.unitPrice || 0) * (item.quantity || item.qty || 1)).toFixed(2)}
-        </td>
-      </tr>
-    `).join('');
-
-    const formattedDate = new Date().toLocaleString();
-    const cashier = "User 1";
-
+  const printBrowserReceipt = async (props, paidAmount, changeAmount, paymentType, billNo, methods) => {
     let paymentMethodText = paymentType;
     if (paymentType === 'split' && methods) {
       paymentMethodText = methods.map(m => `${m.method} (LKR ${parseFloat(m.amount).toFixed(2)})`).join(', ');
     }
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Receipt - ${billNo}</title>
-          <style>
-            body { font-family: 'Courier New', Courier, monospace; margin: 0; padding: 15px; width: 280px; color: #000; }
-            .text-center { text-align: center; }
-            .divider { border-top: 1px dashed #000; margin: 10px 0; }
-            .header-title { font-size: 18px; font-weight: bold; margin-bottom: 3px; }
-            table { width: 100%; border-collapse: collapse; }
-            .footer { font-size: 11px; margin-top: 15px; text-align: center; }
-          </style>
-        </head>
-        <body>
-          <div class="text-center">
-            <div class="header-title">R.S.BATHIK</div>
-            <div style="font-size: 12px;">Premium Bathik Clothing</div>
-            <div style="font-size: 11px;">Galle Road, Colombo, Sri Lanka</div>
-            <div style="font-size: 11px;">Tel: +94 11 234 5678</div>
-          </div>
-          <div class="divider"></div>
-          <div style="font-size: 12px; line-height: 1.4;">
-            <b>Bill No :</b> ${billNo}<br/>
-            <b>Date    :</b> ${formattedDate}<br/>
-            <b>Cashier :</b> ${cashier}<br/>
-          </div>
-          <div class="divider"></div>
-          <table>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-          </table>
-          <div class="divider"></div>
-          <div style="font-size: 13px; line-height: 1.5;">
-            <div style="display: flex; justify-content: space-between;">
-              <span>Subtotal:</span>
-              <span>LKR ${parseFloat(props?.subtotal || 0).toFixed(2)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-style: italic;">
-              <span>Discount:</span>
-              <span>-LKR ${parseFloat(props?.discount || 0).toFixed(2)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 15px; margin-top: 4px;">
-              <span>NET TOTAL:</span>
-              <span>LKR ${parseFloat(props?.originalTotal || props?.total || 0).toFixed(2)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size:12px; margin-top: 4px;">
-              <span>Paid Via:</span>
-              <span>${paymentMethodText}</span>
-            </div>
-          </div>
-          <div class="divider"></div>
-          <div class="footer">
-            Thank you for shopping with us!<br/>
-            Exchange possible within 7 days.<br/>
-            <b>Powered by R.S.Bathik POS</b>
-          </div>
-          <script>
-            window.onload = function() {
-              window.print();
-              window.close();
-            }
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    const dataToPrint = {
+      items: props?.items || [],
+      subtotal: props?.subtotal || 0,
+      total: props?.originalTotal || props?.total || 0,
+      paymentMethod: paymentMethodText,
+      paidAmount: paidAmount,
+      changeAmount: changeAmount,
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString(),
+      invoiceNumber: billNo,
+      totalProductDiscount: props?.totalProductDiscount || 0,
+      additionalCartDiscount: props?.discount || 0
+    };
+
+    try {
+      await silentPrintService.printSilent(dataToPrint, {});
+      toast.success("Bill printed directly to thermal printer!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to print directly: " + error.message);
+    }
   };
 
   const handleCalculateBalance = async () => {
@@ -419,7 +355,7 @@ const CashCalcModal = () => {
           const invoiceData = invoiceResponse?.payload || invoiceResponse;
           
           const billNo = invoiceData?.BillNo || invoiceData?.ResultSet?.[0]?.BillNo || invoiceData?.data?.BillNo || localStorage.getItem('lastInvoice') || 'N/A';
-          printBrowserReceipt(modalProps, totalPaid, balance, 'split', billNo, allMethods);
+          await printBrowserReceipt(modalProps, totalPaid, balance, 'split', billNo, allMethods);
           
           dispatch(closeModal());
           dispatch(openModal('INVOICE', {
@@ -458,7 +394,7 @@ const CashCalcModal = () => {
           const invoiceData = invoiceResponse?.payload || invoiceResponse;
           
           const billNo = invoiceData?.BillNo || invoiceData?.ResultSet?.[0]?.BillNo || invoiceData?.data?.BillNo || localStorage.getItem('lastInvoice') || 'N/A';
-          printBrowserReceipt(modalProps, numericCash, balance, 'Cash', billNo, null);
+          await printBrowserReceipt(modalProps, numericCash, balance, 'Cash', billNo, null);
           
           dispatch(closeModal());
           dispatch(openModal('INVOICE', {

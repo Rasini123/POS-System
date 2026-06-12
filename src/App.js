@@ -18,6 +18,9 @@ import AddProductModal from "./components/modals/AddProductModal";
 import DiscountModal from "./components/modals/DiscountModal";
 import { LOGIN_SUCCESS } from "./constants/authConstants";
 import { openModal, closeModal } from "./actions/modalActions";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 
 function AppInitializer() {
   const dispatch = useDispatch();
@@ -83,6 +86,7 @@ function AppContent() {
     >
       <Layout />
       {renderModal()}
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 }
