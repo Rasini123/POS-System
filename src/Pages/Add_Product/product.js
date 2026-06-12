@@ -179,6 +179,17 @@ const ProductManagement = () => {
       return;
     }
 
+    const selectedCategory = categories.find(c => String(c.pcd_category_id) === String(ppd_category_id));
+    const selectedSubcategory = subcategories.find(s => String(s.psd_subcategory_id) === String(ppd_subcategory_id));
+    if (!selectedCategory || selectedCategory.pcd_is_active !== 'A') {
+      triggerAlert('Please select an active category.', 'error');
+      return;
+    }
+    if (!selectedSubcategory || selectedSubcategory.psd_is_active !== 'A') {
+      triggerAlert('Please select an active subcategory.', 'error');
+      return;
+    }
+
     try {
       const payload = {
         ...currentProduct,
@@ -251,12 +262,13 @@ const ProductManagement = () => {
   };
 
   const openNewProduct = () => {
+    const firstActiveCategory = categories.find(c => c.pcd_is_active === 'A');
     setCurrentProduct({
       ppd_product_id: null,
       ppd_product_code: 'RSB-' + Math.floor(1000 + Math.random() * 9000),
       ppd_barcode: '880' + Math.floor(1000000000 + Math.random() * 9000000000),
       ppd_product_name: '',
-      ppd_category_id: categories[0]?.pcd_category_id || '',
+      ppd_category_id: firstActiveCategory?.pcd_category_id || '',
       ppd_subcategory_id: '',
       ppd_price: '',
       ppd_product_image: ''
@@ -301,6 +313,11 @@ const ProductManagement = () => {
   const handleSaveSubcategory = async (e) => {
     e.preventDefault();
     if (!subcategoryName.trim() || !parentCategoryId) return;
+    const selectedCategory = categories.find(c => String(c.pcd_category_id) === String(parentCategoryId));
+    if (!selectedCategory || selectedCategory.pcd_is_active !== 'A') {
+      triggerAlert('Please select an active category before saving a subcategory.', 'error');
+      return;
+    }
     try {
       if (editingSubcategory) {
         const response = await productService.updateSubcategory(
@@ -421,6 +438,8 @@ const ProductManagement = () => {
   const getSubcategoryName = (id) => {
     return subcategories.find(s => String(s.psd_subcategory_id) === String(id))?.psd_subcategory_name || 'None';
   };
+
+  const activeCategories = categories.filter(c => c.pcd_is_active === 'A');
 
   const handleApiSearch = async () => {
     if (!prodSearch.trim()) {
@@ -780,7 +799,7 @@ const ProductManagement = () => {
                 onClick={() => {
                   setEditingSubcategory(null);
                   setSubcategoryName('');
-                  setParentCategoryId(categories[0]?.pcd_category_id || '');
+                  setParentCategoryId(activeCategories[0]?.pcd_category_id || '');
                   setIsSubcatModalOpen(true);
                 }}
                 className="flex items-center gap-1.5 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 px-3.5 py-2 rounded-xl transition-all shadow"
@@ -1014,7 +1033,7 @@ const ProductManagement = () => {
                       }`}
                     >
                       <option value="" disabled>Select Category</option>
-                      {categories.map(c => (
+                      {activeCategories.map(c => (
                         <option key={c.pcd_category_id} value={c.pcd_category_id}>{c.pcd_category_name}</option>
                       ))}
                     </select>
@@ -1035,7 +1054,7 @@ const ProductManagement = () => {
                         {currentProduct.ppd_category_id ? 'Select Subcategory' : 'Select Category First'}
                       </option>
                       {subcategories
-                        .filter(s => String(s.psd_category_id) === String(currentProduct.ppd_category_id))
+                        .filter(s => String(s.psd_category_id) === String(currentProduct.ppd_category_id) && s.psd_is_active === 'A')
                         .map(s => (
                           <option key={s.psd_subcategory_id} value={s.psd_subcategory_id}>{s.psd_subcategory_name}</option>
                         ))}
@@ -1131,7 +1150,7 @@ const ProductManagement = () => {
                     }`}
                   >
                     <option value="" disabled>Select Category</option>
-                    {categories.map(c => (
+                    {activeCategories.map(c => (
                       <option key={c.pcd_category_id} value={c.pcd_category_id}>{c.pcd_category_name}</option>
                     ))}
                   </select>
