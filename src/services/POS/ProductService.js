@@ -7,6 +7,12 @@ const PRODUCT_ADD_API_BASE_URL = PRODUCT_ADD_API_URL.replace(/\/Products\/AddPro
 const pickFirst = (...values) => values.find(value => value !== undefined && value !== null && value !== "");
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+const toActiveFlag = (value) => {
+  if (value === undefined || value === null || value === "") return "A";
+  if (value === true || value === "true" || value === "A" || value === "1" || value === 1) return "A";
+  return "I";
+};
+
 const getProductIdFromResponse = (data) => {
   const resultSet = Array.isArray(data?.ResultSet) ? data.ResultSet[0] : data?.ResultSet;
   const numericResult = /^\d+$/.test(String(data?.Result || "")) ? data.Result : "";
@@ -91,7 +97,7 @@ export const productService = {
     const formData = new FormData();
     formData.append("CategoryId", categoryId);
     formData.append("CategoryName", categoryName);
-    formData.append("IsActive", String(isActive));
+    formData.append("IsActive", toActiveFlag(isActive));
     const response = await axios.post(`${API_URL}/Categories/PutCategoriesDetails`, formData);
     return response.data;
   },
@@ -123,7 +129,7 @@ export const productService = {
     formData.append("SubCategoryId", subcategoryId);
     formData.append("CategoryId", categoryId);
     formData.append("SubCategoryName", subcategoryName);
-    formData.append("IsActive", String(isActive));
+    formData.append("IsActive", toActiveFlag(isActive));
     const response = await axios.post(`${API_URL}/SubCategories/PutSubCategoriesDetails`, formData);
     return response.data;
   },
@@ -197,7 +203,7 @@ export const productService = {
           CategoryId: String(productData.ppd_category_id || productData.CategoryId || ""),
           SubCategoryId: String(productData.ppd_subcategory_id || productData.SubCategoryId || ""),
           UnitType: String(productData.UnitType || productData.ppd_unit_type || "PCS"),
-          IsActive: String(productData.ppd_is_active || productData.IsActive || "A"),
+          IsActive: toActiveFlag(productData.ppd_is_active ?? productData.IsActive),
           UpdatedBy: String(productData.UpdatedBy || productData.ppd_updated_by || "1")
         }
       });

@@ -7,6 +7,12 @@ import {
 import { API_URL } from '../../config';
 import { productService } from '../../services/POS/ProductService';
 
+const toActiveFlag = (value) => {
+  if (value === undefined || value === null || value === '') return 'A';
+  if (value === true || value === 'true' || value === 't' || value === 'T' || value === 'A' || value === '1' || value === 1) return 'A';
+  return 'I';
+};
+
 const ProductManagement = () => {
   const { darkMode } = useSelector((state) => state.ui);
   
@@ -89,7 +95,7 @@ const ProductManagement = () => {
           }
           return '';
         })(),
-        ppd_is_active: p.IsActive || p.ppd_is_active || 'A',
+        ppd_is_active: toActiveFlag(p.IsActive ?? p.isActive ?? p.ppd_is_active),
       }));
       setProducts(mapped);
     } catch (err) {
@@ -104,7 +110,7 @@ const ProductManagement = () => {
         const mapped = apiCategories.map(c => ({
           pcd_category_id: c.CategoryId || c.categoryId,
           pcd_category_name: c.CategoryName || c.categoryName,
-          pcd_is_active: c.IsActive === false ? 'I' : 'A',
+          pcd_is_active: toActiveFlag(c.IsActive ?? c.isActive ?? c.pcd_is_active),
         }));
         setCategories(mapped);
       } else {
@@ -123,7 +129,7 @@ const ProductManagement = () => {
           psd_subcategory_id: s.SubCategoryId || s.subCategoryId,
           psd_category_id: s.CategoryId || s.categoryId,
           psd_subcategory_name: s.SubCategoryName || s.subCategoryName,
-          psd_is_active: s.IsActive === false ? 'I' : 'A',
+          psd_is_active: toActiveFlag(s.IsActive ?? s.isActive ?? s.psd_is_active),
         }));
         setSubcategories(mapped);
       } else {
@@ -166,10 +172,10 @@ const ProductManagement = () => {
   // Save Product
   const handleSaveProduct = async (e) => {
     e.preventDefault();
-    const { ppd_product_code, ppd_barcode, ppd_product_name, ppd_category_id, ppd_price } = currentProduct;
+    const { ppd_product_code, ppd_barcode, ppd_product_name, ppd_category_id, ppd_subcategory_id, ppd_price } = currentProduct;
     
-    if (!ppd_product_code || !ppd_barcode || !ppd_product_name || !ppd_category_id || !ppd_price) {
-      triggerAlert('Please fill in all required fields.', 'error');
+    if (!ppd_product_code || !ppd_barcode || !ppd_product_name || !ppd_category_id || !ppd_subcategory_id || !ppd_price) {
+      triggerAlert('Please fill in all required fields, including category and subcategory.', 'error');
       return;
     }
 
@@ -177,9 +183,9 @@ const ProductManagement = () => {
       const payload = {
         ...currentProduct,
         ppd_category_id: parseInt(currentProduct.ppd_category_id),
-        ppd_subcategory_id: currentProduct.ppd_subcategory_id ? parseInt(currentProduct.ppd_subcategory_id) : null,
+        ppd_subcategory_id: parseInt(currentProduct.ppd_subcategory_id),
         ppd_price: parseFloat(ppd_price),
-        ppd_is_active: currentProduct.ppd_is_active || 'A',
+        ppd_is_active: toActiveFlag(currentProduct.ppd_is_active),
         _imageFile: currentProduct._imageFile || null // Include file object if available
       };
 
@@ -267,7 +273,7 @@ const ProductManagement = () => {
         const response = await productService.updateCategory(
           editingCategory.pcd_category_id,
           categoryName.trim(),
-          editingCategory.pcd_is_active === 'A'
+          editingCategory.pcd_is_active
         );
         if (response.StatusCode === 200) {
           triggerAlert(`Category "${categoryName}" updated successfully!`);
@@ -301,7 +307,7 @@ const ProductManagement = () => {
           editingSubcategory.psd_subcategory_id,
           parseInt(parentCategoryId),
           subcategoryName.trim(),
-          editingSubcategory.psd_is_active === 'A'
+          editingSubcategory.psd_is_active
         );
         if (response.StatusCode === 200) {
           triggerAlert(`Subcategory "${subcategoryName}" updated successfully!`);
@@ -361,7 +367,7 @@ const ProductManagement = () => {
     try {
       const cat = categories.find(c => c.pcd_category_id === id);
       if (!cat) return;
-      const newStatus = cat.pcd_is_active !== 'A';
+      const newStatus = cat.pcd_is_active === 'A' ? 'I' : 'A';
       const response = await productService.updateCategory(id, cat.pcd_category_name, newStatus);
       if (response.StatusCode === 200) {
         triggerAlert('Category status updated successfully!');
@@ -379,7 +385,7 @@ const ProductManagement = () => {
     try {
       const sub = subcategories.find(s => s.psd_subcategory_id === id);
       if (!sub) return;
-      const newStatus = sub.psd_is_active !== 'A';
+      const newStatus = sub.psd_is_active === 'A' ? 'I' : 'A';
       const response = await productService.updateSubcategory(
         id,
         sub.psd_category_id,
@@ -444,7 +450,7 @@ const ProductManagement = () => {
              ppd_category_id: apiProductRaw.CategoryId ? parseInt(apiProductRaw.CategoryId) : match.ppd_category_id,
              ppd_subcategory_id: apiProductRaw.SubCategoryId ? parseInt(apiProductRaw.SubCategoryId) : match.ppd_subcategory_id,
              ppd_product_image: apiProductRaw.ImageUrl || apiProductRaw.imageUrl || apiProductRaw.ProductImage || match.ppd_product_image,
-             ppd_is_active: apiProductRaw.IsActive || match.ppd_is_active
+             ppd_is_active: toActiveFlag(apiProductRaw.IsActive ?? apiProductRaw.isActive ?? match.ppd_is_active)
            };
            setProducts(products.map(p => p.ppd_product_id === match.ppd_product_id ? updatedProduct : p));
            triggerAlert('Product data refreshed from API');
@@ -1015,15 +1021,19 @@ const ProductManagement = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-bold mb-1 uppercase tracking-wide">Subcategory</label>
+                    <label className="block text-xs font-bold mb-1 uppercase tracking-wide">Subcategory *</label>
                     <select
+                      required
                       value={currentProduct.ppd_subcategory_id}
                       onChange={e => setCurrentProduct({ ...currentProduct, ppd_subcategory_id: e.target.value })}
+                      disabled={!currentProduct.ppd_category_id}
                       className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-teal-500 ${
                         darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300'
                       }`}
                     >
-                      <option value="">None / Select Subcategory</option>
+                      <option value="" disabled>
+                        {currentProduct.ppd_category_id ? 'Select Subcategory' : 'Select Category First'}
+                      </option>
                       {subcategories
                         .filter(s => String(s.psd_category_id) === String(currentProduct.ppd_category_id))
                         .map(s => (
