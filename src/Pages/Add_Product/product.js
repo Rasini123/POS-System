@@ -724,7 +724,7 @@ const ProductManagement = () => {
           <div className="flex flex-col overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold flex items-center gap-2">
-                <FiTag className="text-teal-500" /> Categories (ps_categories_details)
+                <FiTag className="text-teal-500" /> Categories
               </h2>
               <button
                 onClick={() => {
@@ -793,7 +793,7 @@ const ProductManagement = () => {
           <div className="flex flex-col overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold flex items-center gap-2">
-                <FiFolder className="text-teal-500" /> Subcategories (ps_subcategories_details)
+                <FiFolder className="text-teal-500" /> Subcategories
               </h2>
               <button
                 onClick={() => {
