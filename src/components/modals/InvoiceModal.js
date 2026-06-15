@@ -8,6 +8,8 @@
 // import Barcode from "react-barcode"; 
 // import { fetchProducts } from "../../actions/POS/productAction";
 // import { useAuthenticatedImage } from "../../hooks/useAuthenticatedImage";
+import silentPrintService from "../../services/POS/silentPrintService";
+import { toast } from 'react-toastify';
 
 // const PRINTER_NAME = "BIXOLON SRP-E302";
 
@@ -3096,6 +3098,34 @@ const InvoiceModal = () => {
     return lines;
   };
 
+  const handleBrowserPrint = async () => {
+    try {
+      setIsPrinting(true);
+      const dataToPrint = {
+        items,
+        subtotal,
+        total,
+        paymentMethod,
+        paidAmount,
+        changeAmount,
+        date: invoiceDate,
+        time: invoiceTime,
+        invoiceNumber,
+        totalProductDiscount,
+        additionalCartDiscount
+      };
+      // Uses the silent print service to hit the local print-server.js
+      await silentPrintService.printSilent(dataToPrint, companyDetails);
+      toast.success("Bill printed directly to thermal printer!");
+      handleClose();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to print directly: " + error.message);
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
   // Separate function to just open cash drawer
   const handleOpenCashDrawer = async () => {
     if (isOpeningDrawer) return;
@@ -3403,6 +3433,14 @@ const InvoiceModal = () => {
             >
               {isOpeningDrawer ? "Opening..." : "Open Drawer"}
             </button> */}
+
+            <button
+              onClick={handleBrowserPrint}
+              disabled={isPrinting}
+              className="py-2 px-4 bg-green-500 text-white font-semibold rounded-lg shadow hover:bg-green-600 disabled:opacity-50"
+            >
+              {isPrinting ? "Printing..." : "Print Bill"}
+            </button>
 
             <button
               onClick={handleClose}

@@ -263,9 +263,11 @@
 
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { toast } from 'react-toastify';
 import { closeModal } from '../../actions/modalActions';
 import { openModal } from '../../actions/modalActions';
 import { clearCart } from '../../actions/POS/cartActions';
+import silentPrintService from '../../services/POS/silentPrintService';
 import { addInvoice } from '../../actions/POS/invoiceActions';
 import Modal from '../common/Modal';
 
@@ -289,6 +291,35 @@ const CashCalcModal = () => {
 
   const parseInput = (value) => {
     return value.replace(/[^\d.]/g, '');
+  };
+
+  const printBrowserReceipt = async (props, paidAmount, changeAmount, paymentType, billNo, methods) => {
+    let paymentMethodText = paymentType;
+    if (paymentType === 'split' && methods) {
+      paymentMethodText = methods.map(m => `${m.method} (LKR ${parseFloat(m.amount).toFixed(2)})`).join(', ');
+    }
+
+    const dataToPrint = {
+      items: props?.items || [],
+      subtotal: props?.subtotal || 0,
+      total: props?.originalTotal || props?.total || 0,
+      paymentMethod: paymentMethodText,
+      paidAmount: paidAmount,
+      changeAmount: changeAmount,
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString(),
+      invoiceNumber: billNo,
+      totalProductDiscount: props?.totalProductDiscount || 0,
+      additionalCartDiscount: props?.discount || 0
+    };
+
+    try {
+      await silentPrintService.printSilent(dataToPrint, {});
+      toast.success("Bill printed directly to thermal printer!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to print directly: " + error.message);
+    }
   };
 
   const handleCalculateBalance = async () => {
@@ -322,6 +353,9 @@ const CashCalcModal = () => {
           }));
 
           const invoiceData = invoiceResponse?.payload || invoiceResponse;
+          
+          const billNo = invoiceData?.BillNo || invoiceData?.ResultSet?.[0]?.BillNo || invoiceData?.data?.BillNo || localStorage.getItem('lastInvoice') || 'N/A';
+          await printBrowserReceipt(modalProps, totalPaid, balance, 'split', billNo, allMethods);
           
           dispatch(closeModal());
           dispatch(openModal('INVOICE', {
@@ -358,6 +392,9 @@ const CashCalcModal = () => {
           }));
 
           const invoiceData = invoiceResponse?.payload || invoiceResponse;
+          
+          const billNo = invoiceData?.BillNo || invoiceData?.ResultSet?.[0]?.BillNo || invoiceData?.data?.BillNo || localStorage.getItem('lastInvoice') || 'N/A';
+          await printBrowserReceipt(modalProps, numericCash, balance, 'Cash', billNo, null);
           
           dispatch(closeModal());
           dispatch(openModal('INVOICE', {

@@ -7,6 +7,8 @@ import {
 } from 'react-icons/fi';
 import { invoiceService } from '../../services/POS/invoiceService';
 import { billService } from '../../services/POS/billService';
+import silentPrintService from '../../services/POS/silentPrintService';
+import { toast } from 'react-toastify';
 import { setActivePage } from '../../actions/uiActions';
 
 const TransactionsHistory = () => {
@@ -189,95 +191,17 @@ const TransactionsHistory = () => {
     };
   };
 
-  const handlePrint = (billId) => {
+  const handlePrint = async (billId) => {
     const details = getDetailsForPrint(String(billId));
     if (!details) return;
     
-    // Simple inline print layout using window.open
-    const printWindow = window.open('', '_blank', 'width=350,height=600');
-    
-    const itemsHtml = details.items.map(item => `
-      <tr>
-        <td style="padding: 4px 0; font-size: 13px;">
-          ${item.productName}<br/>
-          <span style="font-size:11px; color:#555;">${item.pid_qty} x LKR ${item.pid_unit_price.toFixed(2)}</span>
-        </td>
-        <td style="text-align: right; vertical-align: top; padding: 4px 0; font-size: 13px;">
-          LKR ${item.pid_total.toFixed(2)}
-        </td>
-      </tr>
-    `).join('');
-
-    const formattedDate = new Date(details.bill.pbd_bill_date).toLocaleString();
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Receipt - ${details.bill.pbd_bill_no}</title>
-          <style>
-            body { font-family: 'Courier New', Courier, monospace; margin: 0; padding: 15px; width: 280px; color: #000; }
-            .text-center { text-align: center; }
-            .divider { border-top: 1px dashed #000; margin: 10px 0; }
-            .header-title { font-size: 18px; font-weight: bold; margin-bottom: 3px; }
-            table { width: 100%; border-collapse: collapse; }
-            .footer { font-size: 11px; margin-top: 15px; text-align: center; }
-          </style>
-        </head>
-        <body>
-          <div class="text-center">
-            <div class="header-title">R.S.BATHIK</div>
-            <div style="font-size: 12px;">Premium Bathik Clothing</div>
-            <div style="font-size: 11px;">Galle Road, Colombo, Sri Lanka</div>
-            <div style="font-size: 11px;">Tel: +94 11 234 5678</div>
-          </div>
-          <div class="divider"></div>
-          <div style="font-size: 12px; line-height: 1.4;">
-            <b>Bill No :</b> ${details.bill.pbd_bill_no}<br/>
-            <b>Date    :</b> ${formattedDate}<br/>
-            <b>Cashier :</b> ${details.cashier}<br/>
-          </div>
-          <div class="divider"></div>
-          <table>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-          </table>
-          <div class="divider"></div>
-          <div style="font-size: 13px; line-height: 1.5;">
-            <div style="display: flex; justify-content: space-between;">
-              <span>Subtotal:</span>
-              <span>LKR ${details.bill.pbd_total_amount.toFixed(2)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-style: italic;">
-              <span>Discount:</span>
-              <span>-LKR ${details.bill.pbd_discount_amount.toFixed(2)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 15px; margin-top: 4px;">
-              <span>NET TOTAL:</span>
-              <span>LKR ${details.bill.pbd_net_amount.toFixed(2)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size:12px; margin-top: 4px;">
-              <span>Paid Via:</span>
-              <span>${details.bill.pbd_payment_type}</span>
-            </div>
-          </div>
-          <div class="divider"></div>
-          <div class="footer">
-            Thank you for shopping with us!<br/>
-            Exchange possible within 7 days.<br/>
-            <b>Powered by R.S.Bathik POS</b>
-          </div>
-          <script>
-            window.onload = function() {
-              window.print();
-              window.close();
-            }
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    triggerAlert('Sending receipt to printer...');
+    try {
+      await silentPrintService.printHistorySilent(details, {});
+      toast.success('History bill printed directly to thermal printer!');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to print directly: ' + error.message);
+    }
   };
 
   const handleGoToReturn = (billId) => {
