@@ -13,6 +13,14 @@ const toActiveFlag = (value) => {
   return 'I';
 };
 
+const normalizeNameForCompare = (value) => (
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/['’`]/g, '')
+    .replace(/\s+/g, ' ')
+);
+
 const ProductManagement = () => {
   const { darkMode } = useSelector((state) => state.ui);
   
@@ -279,25 +287,37 @@ const ProductManagement = () => {
   // Add/Edit Category
   const handleSaveCategory = async (e) => {
     e.preventDefault();
-    if (!categoryName.trim()) return;
+    const trimmedCategoryName = categoryName.trim();
+    if (!trimmedCategoryName) return;
+
+    const duplicateCategory = categories.find(cat => (
+      normalizeNameForCompare(cat.pcd_category_name) === normalizeNameForCompare(trimmedCategoryName) &&
+      String(cat.pcd_category_id) !== String(editingCategory?.pcd_category_id || '')
+    ));
+
+    if (duplicateCategory) {
+      triggerAlert(`Category "${trimmedCategoryName}" already exists. Please use a different name.`, 'error');
+      return;
+    }
+
     try {
       if (editingCategory) {
         const response = await productService.updateCategory(
           editingCategory.pcd_category_id,
-          categoryName.trim(),
+          trimmedCategoryName,
           editingCategory.pcd_is_active
         );
         if (response.StatusCode === 200) {
-          triggerAlert(`Category "${categoryName}" updated successfully!`);
+          triggerAlert(`Category "${trimmedCategoryName}" updated successfully!`);
         } else {
-          triggerAlert(response.Result || `Category "${categoryName}" updated!`);
+          triggerAlert(response.Result || `Category "${trimmedCategoryName}" updated!`);
         }
       } else {
-        const response = await productService.addCategory(categoryName.trim());
+        const response = await productService.addCategory(trimmedCategoryName);
         if (response.StatusCode === 200) {
-          triggerAlert(`Category "${categoryName}" created successfully!`);
+          triggerAlert(`Category "${trimmedCategoryName}" created successfully!`);
         } else {
-          triggerAlert(response.Result || `Category "${categoryName}" created!`);
+          triggerAlert(response.Result || `Category "${trimmedCategoryName}" created!`);
         }
       }
       setCategoryName('');
@@ -724,7 +744,7 @@ const ProductManagement = () => {
           <div className="flex flex-col overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold flex items-center gap-2">
-                <FiTag className="text-teal-500" /> Categories (ps_categories_details)
+                <FiTag className="text-teal-500" /> Categories
               </h2>
               <button
                 onClick={() => {
@@ -793,7 +813,7 @@ const ProductManagement = () => {
           <div className="flex flex-col overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold flex items-center gap-2">
-                <FiFolder className="text-teal-500" /> Subcategories (ps_subcategories_details)
+                <FiFolder className="text-teal-500" /> Subcategories
               </h2>
               <button
                 onClick={() => {
