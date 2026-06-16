@@ -136,7 +136,7 @@ const Sidebar = ({ setActivePage }) => {
   };
   const allSidebarButtons = [
     { id: 'POS', icon: 'fas fa-cash-register', label: 'POS Billing', color: 'bg-indigo-600 hover:bg-indigo-700' },
-    { id: 'ADD_PRODUCT', icon: 'fas fa-tshirt', label: 'Products & Cat.', color: 'bg-teal-600 hover:bg-teal-700' },
+    { id: 'ADD_PRODUCT', icon: 'fas fa-tshirt', label: 'Products & Categories', color: 'bg-teal-600 hover:bg-teal-700' },
     { id: 'HISTORY', icon: 'fas fa-history', label: 'Transactions', color: 'bg-blue-600 hover:bg-blue-700' },
     { id: 'RETURNS', icon: 'fas fa-undo', label: 'Returns', color: 'bg-rose-600 hover:bg-rose-700' },
     { id: 'REPORTS', icon: 'fas fa-chart-pie', label: 'Reports', color: 'bg-purple-600 hover:bg-purple-700' },
