@@ -330,7 +330,7 @@ const TransactionsHistory = () => {
         
         {/* Bills Table */}
         <div className="flex-1 overflow-auto rounded-2xl border border-gray-200 dark:border-gray-700">
-          <table className="w-full text-left border-collapse">
+          <table className="hidden md:table w-full text-left border-collapse">
             <thead>
               <tr className={`sticky top-0 z-10 ${darkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-gray-50 border-b border-gray-200'}`}>
                 <th className="px-5 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Bill ID</th>
@@ -428,6 +428,77 @@ const TransactionsHistory = () => {
               ))}
             </tbody>
           </table>
+          
+          {/* Mobile Cards */}
+          <div className="md:hidden flex flex-col gap-4 p-4">
+            {filteredBills.map((b) => (
+              <div 
+                key={b.pbd_bill_id}
+                onClick={() => handleSelectBill(b.pbd_bill_id)}
+                className={`p-4 rounded-xl border shadow-sm cursor-pointer transition-colors ${
+                  selectedBill?.pbd_bill_id === b.pbd_bill_id
+                    ? (darkMode ? 'bg-blue-900/20 hover:bg-blue-900/30 border-blue-500' : 'bg-blue-50 hover:bg-blue-100 border-blue-400')
+                    : (darkMode ? 'bg-gray-800 hover:bg-gray-800/80 border-gray-700' : 'bg-white hover:bg-gray-50 border-gray-200')
+                }`}
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-bold text-lg text-blue-600 dark:text-blue-400">{b.pbd_bill_no}</h3>
+                    <p className="text-xs font-semibold opacity-75 mt-0.5">Bill ID: {b.pbd_bill_id}</p>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                    b.pbd_payment_type === 'Cash' 
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' 
+                      : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400'
+                  }`}>
+                    {b.pbd_payment_type === 'Cash' ? <FiDollarSign className="w-3.5 h-3.5" /> : <FiCreditCard className="w-3.5 h-3.5" />}
+                    {b.pbd_payment_type}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center mb-4 text-sm">
+                  <div>
+                    <div className="font-semibold flex items-center gap-1.5"><FiCalendar className="w-4 h-4 opacity-70" /> {new Date(b.pbd_bill_date).toLocaleDateString()}</div>
+                    <div className="opacity-60 flex items-center gap-1.5 mt-1"><FiClock className="w-4 h-4 opacity-70" /> {new Date(b.pbd_bill_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs opacity-70 mb-0.5">Net Amount</p>
+                    <p className="font-bold text-lg">LKR {b.pbd_net_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-gray-100 dark:border-gray-700/50">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectBill(b.pbd_bill_id);
+                    }}
+                    className="py-2 rounded-lg text-xs font-bold transition-all bg-gray-100 text-gray-700 hover:bg-blue-600 hover:text-white dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-blue-600 flex justify-center items-center gap-1"
+                  >
+                    <FiEye className="w-4 h-4" /> View
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrint(b.pbd_bill_id);
+                    }}
+                    className="py-2 rounded-lg text-xs font-bold transition-all bg-gray-100 text-gray-700 hover:bg-blue-600 hover:text-white dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-blue-600 flex justify-center items-center gap-1"
+                  >
+                    <FiPrinter className="w-4 h-4" /> Print
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleGoToReturn(b.pbd_bill_id);
+                    }}
+                    className="py-2 rounded-lg text-xs font-bold transition-all bg-gray-100 text-gray-700 hover:bg-rose-600 hover:text-white dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-rose-600 flex justify-center items-center gap-1"
+                  >
+                    <FiCornerUpLeft className="w-4 h-4" /> Return
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
           {filteredBills.length === 0 && (
             <div className="text-center py-16">
               <FiFileText className="w-12 h-12 mx-auto mb-3 opacity-40" />

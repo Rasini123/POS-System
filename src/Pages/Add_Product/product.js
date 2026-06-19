@@ -591,7 +591,7 @@ const ProductManagement = () => {
 
           {/* Grid/Table View */}
           <div className="flex-grow overflow-auto rounded-2xl border border-gray-200 dark:border-gray-700">
-            <table className="w-full text-left border-collapse">
+            <table className="hidden md:table w-full text-left border-collapse">
               <thead>
                 <tr className={`sticky top-0 z-10 ${darkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-gray-50 border-b border-gray-200'}`}>
                   <th className="px-6 py-4 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">ID</th>
@@ -607,73 +607,44 @@ const ProductManagement = () => {
               <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
                 {filteredProducts.map((prod) => (
                   <tr key={prod.ppd_product_id} className={`transition-colors ${darkMode ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50'}`}>
-                    <td className="px-6 py-3 whitespace-nowrap text-sm font-bold opacity-60">
-                      {prod.ppd_product_id}
-                    </td>
+                    <td className="px-6 py-3 whitespace-nowrap text-sm font-bold opacity-60">{prod.ppd_product_id}</td>
                     <td className="px-6 py-3 whitespace-nowrap">
                       <div className="w-12 h-12 rounded-xl overflow-hidden shadow border border-gray-200 dark:border-gray-700 bg-gray-100 flex items-center justify-center">
                         {prod.ppd_product_image ? (
-                          <img
-                            src={prod.ppd_product_image}
-                            alt={prod.ppd_product_name}
-                            className="w-full h-full object-cover"
+                          <img src={prod.ppd_product_image} alt={prod.ppd_product_name} className="w-full h-full object-cover"
                             onError={(e) => {
                               const src = e.target.src;
                               if (!src || !src.includes('imageName=')) return;
-                              
                               const retryCount = parseInt(e.target.dataset.retryCount || '0', 10);
                               const extensions = ['.jpeg', '.jpg', '.png', '.webp', '.gif'];
-                              
-                              // Only retry a maximum of 3 times
-                              if (retryCount >= extensions.length) {
-                                e.target.style.display = 'none';
-                                return;
-                              }
-                              
+                              if (retryCount >= extensions.length) { e.target.style.display = 'none'; return; }
                               try {
                                 const url = new URL(src);
                                 const imageName = url.searchParams.get('imageName');
-                                
                                 if (imageName) {
-                                  // Remove any existing extension from imageName
                                   const baseImageName = imageName.replace(/\.\w+$/, '');
-                                  const newExt = extensions[retryCount];
-                                  e.target.src = `${API_URL}/Products/ServeImage?fileName=${baseImageName}${newExt}`;
+                                  e.target.src = `${API_URL}/Products/ServeImage?fileName=${baseImageName}${extensions[retryCount]}`;
                                   e.target.dataset.retryCount = (retryCount + 1).toString();
-                                } else {
-                                  e.target.style.display = 'none';
-                                }
-                              } catch (err) {
-                                e.target.style.display = 'none';
-                              }
+                                } else { e.target.style.display = 'none'; }
+                              } catch (err) { e.target.style.display = 'none'; }
                             }}
                           />
-                        ) : (
-                          <FiImage className="w-6 h-6 text-gray-400" />
-                        )}
+                        ) : (<FiImage className="w-6 h-6 text-gray-400" />)}
                       </div>
                     </td>
                     <td className="px-6 py-3 whitespace-nowrap">
                       <div className="text-sm font-bold text-teal-600 dark:text-teal-400">{prod.ppd_product_code}</div>
-                      <div className="text-xs opacity-60 flex items-center gap-1 mt-0.5">
-                        <FiHash className="w-3.5 h-3.5" /> {prod.ppd_barcode}
-                      </div>
+                      <div className="text-xs opacity-60 flex items-center gap-1 mt-0.5"><FiHash className="w-3.5 h-3.5" /> {prod.ppd_barcode}</div>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap text-sm font-bold">
-                      {prod.ppd_product_name}
-                    </td>
+                    <td className="px-6 py-3 whitespace-nowrap text-sm font-bold">{prod.ppd_product_name}</td>
                     <td className="px-6 py-3 whitespace-nowrap">
                       <div className="text-sm">{getCategoryName(prod.ppd_category_id)}</div>
                       <div className="text-xs opacity-60 mt-0.5">{getSubcategoryName(prod.ppd_subcategory_id)}</div>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap text-sm font-bold">
-                      {prod.ppd_price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </td>
+                    <td className="px-6 py-3 whitespace-nowrap text-sm font-bold">{prod.ppd_price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td className="px-6 py-3 whitespace-nowrap text-center">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                        prod.ppd_is_active === 'A'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                        prod.ppd_is_active === 'A' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${prod.ppd_is_active === 'A' ? 'bg-green-500' : 'bg-red-500'}`} />
                         {prod.ppd_is_active === 'A' ? 'Active' : 'Inactive'}
@@ -681,22 +652,13 @@ const ProductManagement = () => {
                     </td>
                     <td className="px-6 py-3 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => openEditProduct(prod)}
-                          title="Edit Product"
-                          className="p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40 transition-colors"
-                        >
+                        <button onClick={() => openEditProduct(prod)} title="Edit Product" className="p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40 transition-colors">
                           <FiEdit3 className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => toggleProdStatus(prod.ppd_product_id)}
-                          title={prod.ppd_is_active === 'A' ? 'Deactivate Product' : 'Activate Product'}
+                        <button onClick={() => toggleProdStatus(prod.ppd_product_id)} title={prod.ppd_is_active === 'A' ? 'Deactivate Product' : 'Activate Product'}
                           className={`p-2 rounded-lg transition-colors ${
-                            prod.ppd_is_active === 'A'
-                              ? 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40'
-                              : 'bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/40'
-                          }`}
-                        >
+                            prod.ppd_is_active === 'A' ? 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40' : 'bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/40'
+                          }`}>
                           {prod.ppd_is_active === 'A' ? <FiTrash2 className="w-4 h-4" /> : <FiCheckCircle className="w-4 h-4" />}
                         </button>
                       </div>
@@ -705,6 +667,76 @@ const ProductManagement = () => {
                 ))}
               </tbody>
             </table>
+
+            {/* Mobile Cards - Products */}
+            <div className="md:hidden flex flex-col gap-4 p-4">
+              {filteredProducts.map((prod) => (
+                <div key={prod.ppd_product_id} className={`p-4 rounded-xl border shadow-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  <div className="flex gap-3 mb-3">
+                    <div className="w-14 h-14 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 flex items-center justify-center flex-shrink-0">
+                      {prod.ppd_product_image ? (
+                        <img src={prod.ppd_product_image} alt={prod.ppd_product_name} className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const src = e.target.src;
+                            if (!src || !src.includes('imageName=')) return;
+                            const retryCount = parseInt(e.target.dataset.retryCount || '0', 10);
+                            const extensions = ['.jpeg', '.jpg', '.png', '.webp', '.gif'];
+                            if (retryCount >= extensions.length) { e.target.style.display = 'none'; return; }
+                            try {
+                              const url = new URL(src);
+                              const imageName = url.searchParams.get('imageName');
+                              if (imageName) {
+                                const baseImageName = imageName.replace(/\.\w+$/, '');
+                                e.target.src = `${API_URL}/Products/ServeImage?fileName=${baseImageName}${extensions[retryCount]}`;
+                                e.target.dataset.retryCount = (retryCount + 1).toString();
+                              } else { e.target.style.display = 'none'; }
+                            } catch (err) { e.target.style.display = 'none'; }
+                          }}
+                        />
+                      ) : (<FiImage className="w-6 h-6 text-gray-400" />)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start gap-2">
+                        <h3 className="font-bold text-base truncate">{prod.ppd_product_name}</h3>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0 ${
+                          prod.ppd_is_active === 'A' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${prod.ppd_is_active === 'A' ? 'bg-green-500' : 'bg-red-500'}`} />
+                          {prod.ppd_is_active === 'A' ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-teal-600 dark:text-teal-400 mt-0.5">{prod.ppd_product_code}</p>
+                      <p className="text-xs opacity-60 flex items-center gap-1 mt-0.5"><FiHash className="w-3 h-3" />{prod.ppd_barcode}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center text-sm mb-4">
+                    <div>
+                      <p className="text-xs opacity-60">Category</p>
+                      <p className="font-semibold">{getCategoryName(prod.ppd_category_id)}</p>
+                      <p className="text-xs opacity-50">{getSubcategoryName(prod.ppd_subcategory_id)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs opacity-60">Price</p>
+                      <p className="font-bold text-lg">LKR {prod.ppd_price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-100 dark:border-gray-700/50">
+                    <button onClick={() => openEditProduct(prod)}
+                      className="py-2 rounded-lg text-xs font-bold transition-all bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 flex justify-center items-center gap-1.5">
+                      <FiEdit3 className="w-4 h-4" /> Edit
+                    </button>
+                    <button onClick={() => toggleProdStatus(prod.ppd_product_id)}
+                      className={`py-2 rounded-lg text-xs font-bold transition-all flex justify-center items-center gap-1.5 ${
+                        prod.ppd_is_active === 'A' ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400' : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400'
+                      }`}>
+                      {prod.ppd_is_active === 'A' ? <><FiTrash2 className="w-4 h-4" /> Deactivate</> : <><FiCheckCircle className="w-4 h-4" /> Activate</>}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
             {filteredProducts.length === 0 && (
               <div className="text-center py-16">
                 <FiGrid className="w-12 h-12 mx-auto mb-3 opacity-40" />
@@ -739,7 +771,7 @@ const ProductManagement = () => {
             </div>
             
             <div className="flex-grow overflow-auto border border-gray-200 dark:border-gray-700 rounded-2xl bg-gray-50/50 dark:bg-gray-800/10">
-              <table className="w-full text-left border-collapse">
+              <table className="hidden md:table w-full text-left border-collapse">
                 <thead>
                   <tr className={`sticky top-0 ${darkMode ? 'bg-gray-800' : 'bg-gray-100'} border-b dark:border-gray-700`}>
                     <th className="px-5 py-3 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">ID</th>
@@ -786,6 +818,36 @@ const ProductManagement = () => {
                   ))}
                 </tbody>
               </table>
+              {/* Mobile Cards - Categories */}
+              <div className="md:hidden flex flex-col gap-3 p-3">
+                {categories.map(cat => (
+                  <div key={cat.pcd_category_id} className={`p-3 rounded-xl border shadow-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <div className="flex justify-between items-center mb-3">
+                      <div>
+                        <h3 className="font-bold text-sm">{cat.pcd_category_name}</h3>
+                        <p className="text-xs opacity-60 mt-0.5">ID: {cat.pcd_category_id}</p>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        cat.pcd_is_active === 'A' ? 'bg-green-100 text-green-800 dark:bg-green-900/30' : 'bg-red-100 text-red-800 dark:bg-red-900/30'
+                      }`}>
+                        {cat.pcd_is_active === 'A' ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => { setEditingCategory(cat); setCategoryName(cat.pcd_category_name); setIsCatModalOpen(true); }}
+                        className="py-2 rounded-lg text-xs font-bold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 flex justify-center items-center gap-1">
+                        Edit
+                      </button>
+                      <button onClick={() => toggleCatStatus(cat.pcd_category_id)}
+                        className={`py-2 rounded-lg text-xs font-bold flex justify-center items-center gap-1 ${
+                          cat.pcd_is_active === 'A' ? 'bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400' : 'bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400'
+                        }`}>
+                        {cat.pcd_is_active === 'A' ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -809,7 +871,7 @@ const ProductManagement = () => {
             </div>
             
             <div className="flex-grow overflow-auto border border-gray-200 dark:border-gray-700 rounded-2xl bg-gray-50/50 dark:bg-gray-800/10">
-              <table className="w-full text-left border-collapse">
+              <table className="hidden md:table w-full text-left border-collapse">
                 <thead>
                   <tr className={`sticky top-0 ${darkMode ? 'bg-gray-800' : 'bg-gray-100'} border-b dark:border-gray-700`}>
                     <th className="px-5 py-3 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">ID</th>
@@ -859,6 +921,37 @@ const ProductManagement = () => {
                   ))}
                 </tbody>
               </table>
+              {/* Mobile Cards - Subcategories */}
+              <div className="md:hidden flex flex-col gap-3 p-3">
+                {subcategories.map(sub => (
+                  <div key={sub.psd_subcategory_id} className={`p-3 rounded-xl border shadow-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="font-bold text-sm">{sub.psd_subcategory_name}</h3>
+                        <p className="text-xs opacity-60 mt-0.5">{getCategoryName(sub.psd_category_id)}</p>
+                        <p className="text-xs opacity-50">ID: {sub.psd_subcategory_id}</p>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        sub.psd_is_active === 'A' ? 'bg-green-100 text-green-800 dark:bg-green-900/30' : 'bg-red-100 text-red-800 dark:bg-red-900/30'
+                      }`}>
+                        {sub.psd_is_active === 'A' ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => { setEditingSubcategory(sub); setSubcategoryName(sub.psd_subcategory_name); setParentCategoryId(sub.psd_category_id); setIsSubcatModalOpen(true); }}
+                        className="py-2 rounded-lg text-xs font-bold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 flex justify-center items-center gap-1">
+                        Edit
+                      </button>
+                      <button onClick={() => toggleSubcatStatus(sub.psd_subcategory_id)}
+                        className={`py-2 rounded-lg text-xs font-bold flex justify-center items-center gap-1 ${
+                          sub.psd_is_active === 'A' ? 'bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400' : 'bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400'
+                        }`}>
+                        {sub.psd_is_active === 'A' ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

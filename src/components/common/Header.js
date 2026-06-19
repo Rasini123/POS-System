@@ -326,7 +326,7 @@ const Header = ({ activePage }) => {
           </div> */}
           
           {/* Separate Date Display */}
-          <div className={`flex items-center gap-1 px-2 md:px-3 py-1 rounded-md ${
+          <div className={`hidden sm:flex items-center gap-1 px-2 md:px-3 py-1 rounded-md ${
             darkMode ? 'bg-green-900/20 text-green-400 border-green-800/50' : 'bg-green-100 text-green-700 border-green-200'
           } border text-xs md:text-sm font-medium shadow-sm`}>
             <i className="fas fa-calendar text-xs"></i>

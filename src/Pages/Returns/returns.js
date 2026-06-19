@@ -333,7 +333,7 @@ const ReturnsPage = () => {
         </div>
 
         {/* Tab Selection */}
-        <div className="flex p-1 rounded-xl bg-gray-100 dark:bg-gray-800 self-start md:self-center">
+        <div className="flex flex-wrap p-1 rounded-xl bg-gray-100 dark:bg-gray-800 self-start md:self-center">
           <button
             onClick={() => setActiveTab('process')}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
@@ -472,7 +472,7 @@ const ReturnsPage = () => {
                     </button>
                   </div>
 
-                  <table className="w-full text-left border-collapse">
+                  <table className="hidden md:table w-full text-left border-collapse">
                     <thead>
                       <tr className={`text-xs font-bold uppercase opacity-75 ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
                         <th className="px-5 py-3.5">Product</th>
@@ -545,6 +545,79 @@ const ReturnsPage = () => {
                       })}
                     </tbody>
                   </table>
+
+                  {/* Mobile Cards - Process Return */}
+                  <div className="md:hidden flex flex-col gap-4 p-4">
+                    {searchedBillItems.map((item) => {
+                      const returned = alreadyReturnedQtys[item.id] || 0;
+                      const available = item.qty - returned;
+                      const isFullyReturned = available <= 0;
+                      return (
+                        <div key={item.id} className={`p-4 rounded-xl border shadow-sm ${
+                          isFullyReturned ? 'opacity-50 ' : ''
+                        }${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h3 className="font-bold text-base">{item.productName}</h3>
+                              <p className="text-xs opacity-60 mt-0.5">Code: {item.productCode}</p>
+                            </div>
+                            {isFullyReturned ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">
+                                <FiCheckCircle className="w-3 h-3" /> Fully Returned
+                              </span>
+                            ) : (
+                              <span className="font-bold text-sm">{fmtLKR(item.unitPrice)}</span>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 text-xs mb-4">
+                            <div className={`p-2 rounded-lg text-center ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                              <p className="opacity-60 mb-0.5">Purchased</p>
+                              <p className="font-bold text-sm">{item.qty}</p>
+                            </div>
+                            <div className={`p-2 rounded-lg text-center ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                              <p className="opacity-60 mb-0.5">Returned</p>
+                              <p className="font-bold text-sm text-amber-600 dark:text-amber-400">{returned}</p>
+                            </div>
+                            <div className={`p-2 rounded-lg text-center ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                              <p className="opacity-60 mb-0.5">Available</p>
+                              <p className="font-bold text-sm text-green-600 dark:text-green-400">{available}</p>
+                            </div>
+                          </div>
+
+                          {!isFullyReturned && (
+                            <div className="flex gap-2 items-center">
+                              <input
+                                type="number"
+                                min="1"
+                                max={available}
+                                value={returnQtysInput[item.id] || ''}
+                                onChange={(e) => {
+                                  const val = Math.min(available, Math.max(1, parseInt(e.target.value) || 0));
+                                  setReturnQtysInput(prev => ({ ...prev, [item.id]: val }));
+                                }}
+                                placeholder="Qty"
+                                className={`w-20 px-3 py-2 text-center font-bold text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-rose-500 ${
+                                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                                }`}
+                              />
+                              <button
+                                onClick={() => handleMarkReturn(item)}
+                                disabled={processingReturnId === item.id}
+                                className="flex-1 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all flex justify-center items-center gap-1.5 disabled:opacity-50"
+                              >
+                                {processingReturnId === item.id ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                                ) : (
+                                  <><FiCornerUpLeft className="w-4 h-4" /> Process Return</>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
               </div>
@@ -569,7 +642,7 @@ const ReturnsPage = () => {
               <div className="text-xs opacity-60 font-semibold">{returnRecords.length} records in system</div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto hidden md:block">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className={`text-xs font-bold uppercase opacity-75 ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
@@ -620,6 +693,48 @@ const ReturnsPage = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Cards - Return Records */}
+            <div className="md:hidden flex flex-col gap-4 p-4">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-10 space-y-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500"></div>
+                  <p className="text-sm text-gray-500">Loading return logs...</p>
+                </div>
+              ) : returnRecords.length === 0 ? (
+                <div className="text-center py-12">
+                  <FiInfo className="w-10 h-10 mx-auto mb-2 opacity-40 text-gray-400" />
+                  <p className="text-sm text-gray-500">No return records found in the database.</p>
+                </div>
+              ) : returnRecords.map((rec) => (
+                <div key={`${rec.BillItemId || rec.ProductId}-${rec.ReturnDate || rec.ReturnedQty}`}
+                  className={`p-4 rounded-xl border shadow-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="font-bold text-base">{rec.ProductName || `Product ${rec.ProductId}`}</h3>
+                      <p className="text-xs opacity-50 mt-0.5">Item ID: {rec.BillItemId}</p>
+                    </div>
+                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">Bill #{rec.BillId}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-3 border-t border-b border-gray-100 dark:border-gray-700/50 mb-3">
+                    <div className="text-center">
+                      <p className="text-xs opacity-60 mb-0.5">Returned Qty</p>
+                      <p className="font-bold text-base">{rec.ReturnedQty}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs opacity-60 mb-0.5">Refund Amount</p>
+                      <p className="font-bold text-base text-rose-600 dark:text-rose-400">{fmtLKR(getRefundAmount(rec))}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs opacity-60 mb-0.5">Return Date</p>
+                      <p className="font-semibold text-sm">{new Date(rec.ReturnDate).toLocaleDateString()}</p>
+                      <p className="text-xs opacity-55 flex items-center justify-end gap-0.5 mt-0.5"><FiClock className="w-3 h-3" /> {new Date(rec.ReturnDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

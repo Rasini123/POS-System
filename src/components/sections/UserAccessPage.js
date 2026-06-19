@@ -238,7 +238,7 @@ const UserAccessPage = () => {
             }`}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {['all', 'Admin', 'Cashier', 'inactive'].map(f => (
             <button
               key={f}
@@ -259,7 +259,7 @@ const UserAccessPage = () => {
 
       {/* User Table Container */}
       <div className="flex-grow overflow-auto rounded-2xl border border-gray-200 dark:border-gray-700">
-        <table className="w-full text-left border-collapse">
+        <table className="hidden md:table w-full text-left border-collapse">
           <thead>
             <tr className={`sticky top-0 z-10 ${darkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-gray-50 border-b border-gray-200'}`}>
               <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">User ID</th>
@@ -322,6 +322,58 @@ const UserAccessPage = () => {
             ))}
           </tbody>
         </table>
+        
+        {/* Mobile Cards */}
+        <div className="md:hidden flex flex-col gap-4 p-4">
+          {filteredUsers.map((user) => (
+            <div key={user.UserId} className={`p-4 rounded-xl border shadow-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="font-bold text-lg">{user.UserName}</h3>
+                  <p className="text-xs opacity-60 mt-0.5">User ID: {user.UserId}</p>
+                </div>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                  user.RoleName === 'Admin'
+                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                    : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                }`}>
+                  {user.RoleName === 'Admin' ? <FiShield className="w-3.5 h-3.5" /> : <FiUsers className="w-3.5 h-3.5" />}
+                  {user.RoleName}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2 mb-4">
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                  user.IsActive === 'A'
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                }`}>
+                  {user.IsActive === 'A' ? <FiUserCheck className="w-3.5 h-3.5" /> : <FiUserX className="w-3.5 h-3.5" />}
+                  {user.IsActive === 'A' ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button
+                  onClick={() => openModal(user)}
+                  className="w-full py-2 rounded-lg text-xs font-bold transition-all bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 flex justify-center items-center gap-1"
+                >
+                  <FiEdit className="w-4 h-4" /> Edit
+                </button>
+                <button
+                  onClick={() => openStatusModal(user)}
+                  className={`w-full py-2 rounded-lg text-xs font-bold transition-all ${
+                    user.IsActive === 'A'
+                      ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400'
+                      : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400'
+                  }`}
+                >
+                  {user.IsActive === 'A' ? 'Deactivate' : 'Activate'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
         {filteredUsers.length === 0 && (
           <div className="text-center py-12">
             <FiUsers className="w-12 h-12 mx-auto mb-3 opacity-40" />

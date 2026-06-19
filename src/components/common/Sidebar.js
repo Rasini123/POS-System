@@ -293,19 +293,19 @@ const Sidebar = ({ setActivePage }) => {
     );
   };
   return (
-    <div className="relative flex h-full" ref={sidebarRef}>
+    <div className="relative flex w-full md:h-full" ref={sidebarRef}>
       {/* Sidebar Container */}
-      <div className={`flex flex-col gap-2 p-3 h-full transition-all duration-300 ${
+      <div className={`flex flex-row md:flex-col gap-2 p-2 md:p-3 w-full md:h-full transition-all duration-300 overflow-x-auto md:overflow-visible ${
         collapsed 
-          ? 'w-20' 
-          : 'w-64'
+          ? 'md:w-20' 
+          : 'md:w-64'
       } ${
         darkMode 
-          ? 'bg-gradient-to-b from-gray-800 to-gray-900' 
-          : 'bg-gradient-to-b from-white to-gray-50 border-r border-gray-200'
+          ? 'bg-gradient-to-r md:bg-gradient-to-b from-gray-800 to-gray-900' 
+          : 'bg-gradient-to-r md:bg-gradient-to-b from-white to-gray-50 border-b md:border-r border-gray-200'
       }`}>
         
-        {/* Toggle Button */}
+        {/* Toggle Button (Hidden on Mobile, always collapsed horizontally) */}
         <button
           onClick={() => {
             setCollapsed(!collapsed);
@@ -315,7 +315,7 @@ const Sidebar = ({ setActivePage }) => {
             setCurrentChildMenu(null);
             setExpandedDropdowns({});
           }}
-          className={`flex items-center justify-center p-3 rounded-xl sidebar-button transition-all duration-300 mb-2 ${
+          className={`hidden md:flex items-center justify-center p-3 rounded-xl sidebar-button transition-all duration-300 mb-2 ${
             darkMode 
               ? 'bg-gray-700 hover:bg-gray-600 text-white' 
               : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -326,21 +326,20 @@ const Sidebar = ({ setActivePage }) => {
           }`}></i>
         </button>
         {/* Sidebar Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-          <div className="flex flex-col gap-2">
+        <div className="flex-1 flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto custom-scrollbar md:pr-1 pb-1 md:pb-0 gap-2">
             {sidebarButtons.map(button => (
-              <div key={button.id} className="relative">
+              <div key={button.id} className="relative flex-shrink-0 md:flex-shrink-auto">
                 {collapsed ? (
                   // Collapsed view - square icon button
                   <button
                     ref={el => buttonRefs.current[button.id] = el}
                     onClick={(e) => handleButtonClick(button, e)}
-                    className={`flex items-center justify-center p-3 rounded-xl text-white transition-all duration-300 sidebar-button ${button.color} hover:shadow-lg w-full aspect-square relative`}
+                    className={`flex items-center justify-center p-3 rounded-xl text-white transition-all duration-300 sidebar-button ${button.color} hover:shadow-lg w-12 h-12 md:w-full md:aspect-square relative`}
                     title={button.label}
                   >
                     <i className={`${button.icon} text-sm`}></i>
                     {button.hasDropdown && (
-                      <i className="fas fa-chevron-down text-xs absolute bottom-1 right-1 opacity-80"></i>
+                      <i className="fas fa-chevron-down text-[10px] md:text-xs absolute bottom-1 right-1 opacity-80"></i>
                     )}
                   </button>
                 ) : (
@@ -348,20 +347,20 @@ const Sidebar = ({ setActivePage }) => {
                   <div className="relative">
                     <button
                       onClick={(e) => handleButtonClick(button, e)}
-                      className={`flex items-center justify-between p-3 rounded-xl text-white transition-all duration-300 ${button.color} hover:shadow-lg w-full`}
+                      className={`flex items-center justify-between p-3 rounded-xl text-white transition-all duration-300 ${button.color} hover:shadow-lg w-auto md:w-full whitespace-nowrap`}
                     >
                       <div className="flex items-center">
                         <i className={`${button.icon} mr-3 text-sm`}></i>
-                        <span className="text-sm font-semibold whitespace-nowrap">{button.label}</span>
+                        <span className="text-sm font-semibold">{button.label}</span>
                       </div>
                       {button.hasDropdown && (
-                        <i className={`fas fa-chevron-${expandedDropdowns[button.id] ? 'up' : 'down'} text-xs transition-transform duration-300`}></i>
+                        <i className={`fas fa-chevron-${expandedDropdowns[button.id] ? 'up' : 'down'} text-xs ml-2 transition-transform duration-300`}></i>
                       )}
                     </button>
                     
                     {/* Dropdown items - only show in expanded view */}
                     {button.hasDropdown && expandedDropdowns[button.id] && (
-                      <div className="mt-2 p-2 rounded-lg bg-black/10 backdrop-blur-sm">
+                      <div className="mt-2 p-2 rounded-lg bg-black/10 backdrop-blur-sm absolute md:relative z-50 md:z-auto left-0 md:left-auto">
                         {renderSubItems(button, button.subItems)}
                       </div>
                     )}
@@ -369,7 +368,6 @@ const Sidebar = ({ setActivePage }) => {
                 )}
               </div>
             ))}
-          </div>
         </div>
       </div>
       {/* Popup submenu for collapsed sidebar */}

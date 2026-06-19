@@ -462,7 +462,7 @@ export default function ReportsPage() {
             {/* 2. ITEM SALES */}
             {activeReport === 'item_sales' && (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="hidden md:table w-full text-left border-collapse">
                   <thead>
                     <tr className={`text-xs font-bold uppercase opacity-70 ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
                       <th className="px-6 py-4">Item Code</th>
@@ -486,13 +486,38 @@ export default function ReportsPage() {
                     })()}
                   </tbody>
                 </table>
+                {/* Mobile Cards - Item Sales */}
+                <div className="md:hidden flex flex-col gap-3 p-4">
+                  {(() => {
+                    const rows = getItemSalesMap();
+                    if(rows.length === 0) return <div className="text-center py-8 opacity-50">No items sold</div>;
+                    return rows.map((r, i) => (
+                      <div key={i} className={`p-4 rounded-xl border shadow-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="font-bold text-sm">{r.name}</h3>
+                            <p className="text-xs font-bold text-teal-600 dark:text-teal-400 mt-0.5">{r.code}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs opacity-60">Sales Value</p>
+                            <p className="font-bold text-sm">{fmt(r.val)}</p>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-700/50">
+                          <p className="text-xs opacity-60">Qty Sold</p>
+                          <p className="font-bold">{r.qty}</p>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
               </div>
             )}
 
             {/* 3. CATEGORY SALES */}
             {activeReport === 'category_sales' && (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="hidden md:table w-full text-left border-collapse">
                   <thead>
                     <tr className={`text-xs font-bold uppercase opacity-70 ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
                       <th className="px-6 py-4">Category</th>
@@ -514,13 +539,32 @@ export default function ReportsPage() {
                     })()}
                   </tbody>
                 </table>
+                {/* Mobile Cards - Category Sales */}
+                <div className="md:hidden flex flex-col gap-3 p-4">
+                  {(() => {
+                    const rows = getCategorySalesMap();
+                    if(rows.length === 0) return <div className="text-center py-8 opacity-50">No data</div>;
+                    return rows.map((r, i) => (
+                      <div key={i} className={`p-4 rounded-xl border shadow-sm flex justify-between items-center ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                        <div>
+                          <h3 className="font-bold text-sm mb-1">{r.name}</h3>
+                          <p className="text-xs opacity-60">Qty Sold: {r.qty}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs opacity-60">Sales Value</p>
+                          <p className="font-bold text-sm">{fmt(r.val)}</p>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
               </div>
             )}
 
             {/* 4. USER SALES */}
             {activeReport === 'user_sales' && (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="hidden md:table w-full text-left border-collapse">
                   <thead>
                     <tr className={`text-xs font-bold uppercase opacity-70 ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
                       <th className="px-6 py-4">User ID</th>
@@ -550,13 +594,43 @@ export default function ReportsPage() {
                     })()}
                   </tbody>
                 </table>
+                {/* Mobile Cards - User Sales */}
+                <div className="md:hidden flex flex-col gap-3 p-4">
+                  {(() => {
+                    const rows = getUserSalesMap();
+                    if(rows.length === 0) return <div className="text-center py-8 opacity-50">No data</div>;
+                    return rows.map((r, i) => (
+                      <div key={i} className={`p-4 rounded-xl border shadow-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h3 className="font-bold text-sm">{r.name}</h3>
+                            <p className="text-xs opacity-60 mt-0.5">ID: {r.id}</p>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                            r.role.toLowerCase() === 'admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                          }`}>{r.role}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-700/50">
+                          <div>
+                            <p className="text-xs opacity-60">Invoices</p>
+                            <p className="font-bold">{r.count}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs opacity-60">Net Sales</p>
+                            <p className="font-bold">{fmt(r.val)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
               </div>
             )}
 
             {/* 5. CASHIER SALES */}
             {activeReport === 'cashier_sales' && (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="hidden md:table w-full text-left border-collapse">
                   <thead>
                     <tr className={`text-xs font-bold uppercase opacity-70 ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
                       <th className="px-6 py-4">Cashier ID</th>
@@ -580,6 +654,33 @@ export default function ReportsPage() {
                     })()}
                   </tbody>
                 </table>
+                {/* Mobile Cards - Cashier Sales */}
+                <div className="md:hidden flex flex-col gap-3 p-4">
+                  {(() => {
+                    const rows = getCashierSalesMap();
+                    if(rows.length === 0) return <div className="text-center py-8 opacity-50">No data</div>;
+                    return rows.map((r, i) => (
+                      <div key={i} className={`p-4 rounded-xl border shadow-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h3 className="font-bold text-sm">{r.name}</h3>
+                            <p className="text-xs opacity-60 mt-0.5">ID: {r.id}</p>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-700/50">
+                          <div>
+                            <p className="text-xs opacity-60">Invoices</p>
+                            <p className="font-bold">{r.count}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs opacity-60">Net Sales</p>
+                            <p className="font-bold">{fmt(r.val)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
               </div>
             )}
 

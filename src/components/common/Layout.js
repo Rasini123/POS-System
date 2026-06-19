@@ -32,24 +32,24 @@ const Layout = () => {
   }, [user]);
 
   return (
-    <div className="container mx-auto p-2 max-w-screen-xl h-screen flex flex-col">
+    <div className="container mx-auto p-2 max-w-screen-xl min-h-screen md:h-screen flex flex-col overflow-x-hidden">
       <Header />
-      <div className="flex flex-1 gap-2 md:gap-4 lg:gap-1 mt-2 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 gap-2 md:gap-4 lg:gap-1 mt-2 overflow-y-auto md:overflow-hidden">
         {/* Sidebar */}
-        <div className="flex-shrink-0 w-30">
+        <div className="flex-shrink-0 w-full md:w-auto z-20">
           <Sidebar setActivePage={setActivePage} />
         </div>
 
         {/* Main Content */}
         {activePage === "POS" && isCartFocus ? (
           /* Cart Focus Mode: full-width cart with scan/search panel on top */
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden min-h-[500px] md:min-h-0">
             <CartSection cartFocusMode={true} />
           </div>
         ) : (
           <>
             <div
-              className={`flex-1 overflow-hidden transition-all duration-300 ${cartHidden || activePage !== "POS" ? "w-full" : ""
+              className={`flex-1 overflow-visible md:overflow-hidden transition-all duration-300 min-h-[600px] md:min-h-0 ${cartHidden || activePage !== "POS" ? "w-full" : ""
                 }`}
             >
               {activePage === "POS" && (
@@ -69,7 +69,7 @@ const Layout = () => {
             
             {/* Cart Section */}
             {activePage === "POS" && !cartHidden && (
-              <div className="flex-shrink-0 w-80 transition-all duration-300 overflow-y-auto">
+              <div className="flex-shrink-0 w-full md:w-80 transition-all duration-300 overflow-visible md:overflow-y-auto mt-4 md:mt-0 pb-20 md:pb-0 min-h-[400px] md:min-h-0">
                 <CartSection />
               </div>
             )}
